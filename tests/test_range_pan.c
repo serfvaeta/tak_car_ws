@@ -325,7 +325,7 @@ int main(void)
     fake_tick += 1;
     assert(!AX_RANGE_PAN_GetAvoidSample(250, &sample));
 
-    /* Only TRACK's narrow probe requests use the 60 ms settle time. */
+    /* Only TRACK's probe requests use the 60 ms settle time. */
     AX_RANGE_PAN_AvoidRequestAngle(0);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
@@ -340,10 +340,10 @@ int main(void)
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
 
-    AX_RANGE_PAN_AvoidRequestProbeAngle(5);
+    AX_RANGE_PAN_AvoidRequestProbeAngle(15);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 5);
+    assert(applied_angle == 15);
     unsigned count_before_probe = trigger_count;
     fake_tick += 59;
     AX_RANGE_PAN_TaskStep();
@@ -355,7 +355,7 @@ int main(void)
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
     assert(AX_RANGE_PAN_GetAvoidSample(250, &sample));
-    assert(sample.angle_deg == 5);
+    assert(sample.angle_deg == 15);
 
     AX_RANGE_PAN_AvoidRequestProbeAngle(0);
     fake_tick += 20;
@@ -372,7 +372,22 @@ int main(void)
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
 
-    AX_RANGE_PAN_AvoidRequestAngle(-5); /* A normal request stays at 250 ms. */
+    AX_RANGE_PAN_AvoidRequestProbeAngle(-15);
+    fake_tick += 20;
+    AX_RANGE_PAN_TaskStep();
+    assert(applied_angle == -15);
+    count_before_probe = trigger_count;
+    fake_tick += 59;
+    AX_RANGE_PAN_TaskStep();
+    assert(trigger_count == count_before_probe);
+    fake_tick += 1;
+    AX_RANGE_PAN_TaskStep();
+    assert(trigger_count == count_before_probe + 1);
+    fake_status = AX_XURSC_READY;
+    fake_tick += 20;
+    AX_RANGE_PAN_TaskStep();
+
+    AX_RANGE_PAN_AvoidRequestAngle(15); /* A normal request stays at 250 ms. */
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
     count_before_probe = trigger_count;

@@ -12,6 +12,7 @@ int main(void)
         .side_min_mm = 800,
         .scan_max_angle_deg = 90,
         .scan_step_deg = 15,
+        .track_probe_angle_deg = 15,
         .range_max_age_ms = 250,
         .aoa_max_age_ms = 300,
         .approach_start_cm = 110,

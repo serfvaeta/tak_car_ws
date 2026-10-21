@@ -16,6 +16,8 @@ static uint8_t ConfigValid(const AX_AVOID_Config *config)
            config->side_min_mm > 0u && config->scan_max_angle_deg > 0 &&
            config->scan_max_angle_deg <= 90 &&
            config->scan_step_deg > 0 &&
+           config->track_probe_angle_deg > 0 &&
+           config->track_probe_angle_deg <= 90 &&
            config->scan_max_angle_deg % config->scan_step_deg == 0 &&
            (2 * config->scan_max_angle_deg / config->scan_step_deg + 1) <=
                AX_AVOID_SCAN_MAX_POINTS &&
@@ -67,7 +69,7 @@ static void EnterTrack(AX_AVOID_State *state, const AX_AVOID_Input *input)
     state->pan_angle_deg = 0;
     state->track_probe_index = 0;
     /* The centered echo that admitted TRACK is the first probe. Process it
-     * once on the next control step, then move the pan to +5 degrees. */
+     * once on the next control step, then move the pan to the positive probe. */
     state->track_sample_sequence = input->range_sequence - 1u;
     state->track_last_sample_ms = input->now_ms;
     state->track_wait_fresh_front = 0;
@@ -485,8 +487,10 @@ AX_AVOID_Output AX_AVOID_Step(AX_AVOID_State *state,
             state->track_probe_index =
                 (uint8_t)((state->track_probe_index + 1u) % 4u);
             state->pan_angle_deg =
-                (int16_t)((state->track_probe_index == 1u) ? 5 :
-                          (state->track_probe_index == 3u) ? -5 : 0);
+                (int16_t)((state->track_probe_index == 1u) ?
+                          config->track_probe_angle_deg :
+                          (state->track_probe_index == 3u) ?
+                          -config->track_probe_angle_deg : 0);
         } else if ((uint32_t)(now_ms - state->track_last_sample_ms) >=
                    config->range_max_age_ms) {
             EnterTrackWaitFront(state, input);

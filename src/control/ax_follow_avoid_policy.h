@@ -49,6 +49,7 @@ typedef struct {
     uint16_t side_min_mm;
     int16_t scan_max_angle_deg;
     int16_t scan_step_deg;
+    int16_t track_probe_angle_deg;
     uint16_t range_max_age_ms;
     uint16_t aoa_max_age_ms;
     uint16_t approach_start_cm;
