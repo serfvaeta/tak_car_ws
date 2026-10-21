@@ -170,9 +170,9 @@ void AX_RANGE_PAN_AvoidRequestAngle(int16_t degrees)
 
 void AX_RANGE_PAN_AvoidRequestProbeAngle(int16_t degrees)
 {
-    if (degrees == -OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG ||
-        degrees == 0 ||
-        degrees == OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG)
+    if (degrees >= -OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG &&
+        degrees <= OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG &&
+        degrees % OPENCTR_AVOID_TRACK_PROBE_STEP_DEG == 0)
         AvoidRequestAngleWithSettle(degrees, 1);
 }
 

@@ -57,6 +57,7 @@ static const AX_AVOID_Config avoid_config = {
     .scan_max_angle_deg = OPENCTR_AVOID_SCAN_MAX_ANGLE_DEG,
     .scan_step_deg = OPENCTR_AVOID_SCAN_STEP_DEG,
     .track_probe_angle_deg = OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG,
+    .track_probe_step_deg = OPENCTR_AVOID_TRACK_PROBE_STEP_DEG,
     .range_max_age_ms = OPENCTR_AVOID_RANGE_MAX_AGE_MS,
     .aoa_max_age_ms = OPENCTR_AVOID_AOA_MAX_AGE_MS,
     .approach_start_cm = OPENCTR_FOLLOW_START_FORWARD_CM,

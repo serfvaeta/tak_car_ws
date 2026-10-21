@@ -10,6 +10,7 @@ static const AX_AVOID_Config config = {
     .scan_max_angle_deg = 90,
     .scan_step_deg = 15,
     .track_probe_angle_deg = 15,
+    .track_probe_step_deg = 5,
     .range_max_age_ms = 250,
     .aoa_max_age_ms = 300,
     .approach_start_cm = 110,
@@ -154,6 +155,9 @@ static void assert_recenter_then_rescan(AX_AVOID_State *state,
 
 static void test_track_probes_while_moving(void)
 {
+    static const int16_t path[] = {
+        5, 10, 15, 10, 5, 0, -5, -10, -15, -10, -5, 0, 5
+    };
     AX_AVOID_State state;
     AX_AVOID_Input in = input();
     AX_AVOID_Output out;
@@ -164,42 +168,32 @@ static void test_track_probes_while_moving(void)
 
     in.now_ms = 20;
     out = AX_AVOID_Step(&state, &config, &in);
-    assert(out.pan_angle_deg == 15);
+    assert(out.pan_angle_deg == path[0]);
     assert(out.forward_mm_s == 300);
 
-    in.now_ms = 40;
-    in.range_valid = 0; /* Servo is moving; no new echo yet. */
-    out = AX_AVOID_Step(&state, &config, &in);
-    assert(state.phase == AX_AVOID_TRACK);
-    assert(out.pan_angle_deg == 15 && out.forward_mm_s == 300);
+    for (unsigned i = 0; i + 1 < sizeof(path) / sizeof(path[0]); ++i) {
+        in.now_ms += 20;
+        in.range_valid = 0; /* Keep following while the servo settles. */
+        out = AX_AVOID_Step(&state, &config, &in);
+        assert(state.phase == AX_AVOID_TRACK);
+        assert(out.pan_angle_deg == path[i] && out.forward_mm_s == 300);
 
-    in.now_ms = 120;
-    in.range_valid = 1;
-    in.range_angle_deg = 15;
-    in.range_distance_mm = 350; /* Exactly the limit is still clear. */
-    ++in.range_sequence;
-    out = AX_AVOID_Step(&state, &config, &in);
-    assert(out.pan_angle_deg == 0 && out.forward_mm_s == 300);
+        in.now_ms += 80;
+        in.range_valid = 1;
+        in.range_angle_deg = path[i];
+        in.range_distance_mm = 350; /* Exactly the limit is still clear. */
+        ++in.range_sequence;
+        out = AX_AVOID_Step(&state, &config, &in);
+        assert(state.phase == AX_AVOID_TRACK);
+        assert(out.pan_angle_deg == path[i + 1] && out.forward_mm_s == 300);
+    }
 
-    in.now_ms = 140;
+    in.now_ms += 20;
     out = AX_AVOID_Step(&state, &config, &in); /* Duplicate echo. */
-    assert(out.pan_angle_deg == 0 && out.forward_mm_s == 300);
+    assert(out.pan_angle_deg == 5 && out.forward_mm_s == 300);
 
-    in.now_ms = 220;
-    in.range_angle_deg = 0;
-    in.range_distance_mm = 400;
-    ++in.range_sequence;
-    out = AX_AVOID_Step(&state, &config, &in);
-    assert(out.pan_angle_deg == -15 && out.forward_mm_s == 300);
-
-    in.now_ms = 240;
-    in.range_valid = 0;
-    out = AX_AVOID_Step(&state, &config, &in);
-    assert(out.pan_angle_deg == -15 && out.forward_mm_s == 300);
-
-    in.now_ms = 320;
-    in.range_valid = 1;
-    in.range_angle_deg = -15;
+    in.now_ms += 80;
+    in.range_angle_deg = 5;
     in.range_distance_mm = 349;
     ++in.range_sequence;
     out = AX_AVOID_Step(&state, &config, &in);
@@ -217,7 +211,7 @@ static void test_track_stops_if_probe_echo_never_arrives(void)
     AX_AVOID_Reset(&state);
     AX_AVOID_Step(&state, &config, &in);
     in.now_ms = 20;
-    AX_AVOID_Step(&state, &config, &in); /* Request +15 degrees. */
+    AX_AVOID_Step(&state, &config, &in); /* Request +5 degrees. */
     in.range_valid = 0;
     in.now_ms = 271; /* Beyond the configured sample age. */
     out = AX_AVOID_Step(&state, &config, &in);

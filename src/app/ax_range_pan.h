@@ -26,7 +26,7 @@ void AX_RANGE_PAN_SetScanEnabled(uint8_t enabled);
 void AX_RANGE_PAN_SetAvoidEnabled(uint8_t enabled);
 /* Valid only while AVOID owns the scheduler. */
 void AX_RANGE_PAN_AvoidRequestAngle(int16_t degrees);
-/* TRACK's 0 / +/-15 degree probes use the shorter settle interval. */
+/* TRACK's 5-degree steps within +/-15 degrees use the shorter settle interval. */
 void AX_RANGE_PAN_AvoidRequestProbeAngle(int16_t degrees);
 /* Returns the latest sample, including timeout/out-of-range status, if fresh. */
 uint8_t AX_RANGE_PAN_GetAvoidSample(uint32_t max_age_ms,

@@ -50,6 +50,7 @@ typedef struct {
     int16_t scan_max_angle_deg;
     int16_t scan_step_deg;
     int16_t track_probe_angle_deg;
+    int16_t track_probe_step_deg;
     uint16_t range_max_age_ms;
     uint16_t aoa_max_age_ms;
     uint16_t approach_start_cm;
@@ -111,7 +112,7 @@ typedef struct {
     uint8_t rejoin_clear_count;
     uint8_t rejoin_aligned;
     uint8_t recovery_rescan;
-    uint8_t track_probe_index;
+    uint16_t track_probe_index;
     uint8_t track_wait_fresh_front;
     uint32_t scan_wait_sequence;
     uint32_t track_sample_sequence;

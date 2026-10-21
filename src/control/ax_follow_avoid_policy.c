@@ -18,6 +18,8 @@ static uint8_t ConfigValid(const AX_AVOID_Config *config)
            config->scan_step_deg > 0 &&
            config->track_probe_angle_deg > 0 &&
            config->track_probe_angle_deg <= 90 &&
+           config->track_probe_step_deg > 0 &&
+           config->track_probe_angle_deg % config->track_probe_step_deg == 0 &&
            config->scan_max_angle_deg % config->scan_step_deg == 0 &&
            (2 * config->scan_max_angle_deg / config->scan_step_deg + 1) <=
                AX_AVOID_SCAN_MAX_POINTS &&
@@ -82,6 +84,24 @@ static void EnterTrackWaitFront(AX_AVOID_State *state,
     state->track_wait_fresh_front = 1;
     state->track_sample_sequence = input->range_sequence;
     state->phase_start_ms = input->now_ms;
+}
+
+static void AdvanceTrackProbe(AX_AVOID_State *state,
+                              const AX_AVOID_Config *config)
+{
+    uint16_t quarter = (uint16_t)(config->track_probe_angle_deg /
+                                  config->track_probe_step_deg);
+    uint16_t cycle = (uint16_t)(4u * quarter);
+    uint16_t index = (uint16_t)((state->track_probe_index + 1u) % cycle);
+    int16_t offset = (int16_t)index;
+
+    /* 0 -> +max -> 0 -> -max -> 0, measuring at every step. */
+    if (index > quarter && index <= 3u * quarter)
+        offset = (int16_t)(2 * quarter - index);
+    else if (index > 3u * quarter)
+        offset = (int16_t)(index - 4 * quarter);
+    state->track_probe_index = index;
+    state->pan_angle_deg = (int16_t)(offset * config->track_probe_step_deg);
 }
 
 static void EnterRescanWait(AX_AVOID_State *state, const AX_AVOID_Input *input)
@@ -484,13 +504,7 @@ AX_AVOID_Output AX_AVOID_Step(AX_AVOID_State *state,
                 EnterScan(state, config, input);
                 return StopOutput(state);
             }
-            state->track_probe_index =
-                (uint8_t)((state->track_probe_index + 1u) % 4u);
-            state->pan_angle_deg =
-                (int16_t)((state->track_probe_index == 1u) ?
-                          config->track_probe_angle_deg :
-                          (state->track_probe_index == 3u) ?
-                          -config->track_probe_angle_deg : 0);
+            AdvanceTrackProbe(state, config);
         } else if ((uint32_t)(now_ms - state->track_last_sample_ms) >=
                    config->range_max_age_ms) {
             EnterTrackWaitFront(state, input);

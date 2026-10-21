@@ -340,11 +340,28 @@ int main(void)
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
 
+    AX_RANGE_PAN_AvoidRequestProbeAngle(5);
+    fake_tick += 20;
+    AX_RANGE_PAN_TaskStep();
+    assert(applied_angle == 5);
+    unsigned count_before_probe = trigger_count;
+    fake_tick += 59;
+    AX_RANGE_PAN_TaskStep();
+    assert(trigger_count == count_before_probe);
+    fake_tick += 1;
+    AX_RANGE_PAN_TaskStep();
+    assert(trigger_count == count_before_probe + 1);
+    fake_status = AX_XURSC_READY;
+    fake_tick += 20;
+    AX_RANGE_PAN_TaskStep();
+    assert(AX_RANGE_PAN_GetAvoidSample(250, &sample));
+    assert(sample.angle_deg == 5);
+
     AX_RANGE_PAN_AvoidRequestProbeAngle(15);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
     assert(applied_angle == 15);
-    unsigned count_before_probe = trigger_count;
+    count_before_probe = trigger_count;
     fake_tick += 59;
     AX_RANGE_PAN_TaskStep();
     assert(trigger_count == count_before_probe);
@@ -371,6 +388,23 @@ int main(void)
     fake_status = AX_XURSC_READY;
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
+
+    AX_RANGE_PAN_AvoidRequestProbeAngle(-10);
+    fake_tick += 20;
+    AX_RANGE_PAN_TaskStep();
+    assert(applied_angle == -10);
+    count_before_probe = trigger_count;
+    fake_tick += 59;
+    AX_RANGE_PAN_TaskStep();
+    assert(trigger_count == count_before_probe);
+    fake_tick += 1;
+    AX_RANGE_PAN_TaskStep();
+    assert(trigger_count == count_before_probe + 1);
+    fake_status = AX_XURSC_READY;
+    fake_tick += 20;
+    AX_RANGE_PAN_TaskStep();
+    assert(AX_RANGE_PAN_GetAvoidSample(250, &sample));
+    assert(sample.angle_deg == -10);
 
     AX_RANGE_PAN_AvoidRequestProbeAngle(-15);
     fake_tick += 20;

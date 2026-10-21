@@ -10,6 +10,7 @@ static const AX_AVOID_Config config = {
     .scan_max_angle_deg = 90,
     .scan_step_deg = 15,
     .track_probe_angle_deg = 15,
+    .track_probe_step_deg = 5,
     .range_max_age_ms = 250,
     .aoa_max_age_ms = 300,
     .approach_start_cm = 110,

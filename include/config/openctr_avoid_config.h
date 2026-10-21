@@ -10,7 +10,9 @@
 #define OPENCTR_AVOID_FRONT_RELEASE_MM 650u
 /* 侧扫读数 >= 此值：该方向可作为绕行候选。 */
 #define OPENCTR_AVOID_SIDE_MIN_MM 800u
+/* TRACK 在 -15° 到 +15° 之间逐格测距。 */
 #define OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG 15
+#define OPENCTR_AVOID_TRACK_PROBE_STEP_DEG 5
 
 /* 测距节奏。完整换角等待也作用于手动扫描；测量间隔作用于全部超声波模式。 */
 #ifndef OPENCTR_AVOID_PAN_SETTLE_MS
@@ -18,7 +20,7 @@
 #define OPENCTR_AVOID_PAN_SETTLE_MS 250u
 #endif
 #ifndef OPENCTR_AVOID_TRACK_PROBE_SETTLE_MS
-/* FOLLOW_AVOID TRACK 中 0 / +/-15 度探测换角的等待时间。 */
+/* FOLLOW_AVOID TRACK 中每次 5 度探测换角的等待时间。 */
 #define OPENCTR_AVOID_TRACK_PROBE_SETTLE_MS 60u
 #endif
 #ifndef OPENCTR_AVOID_ULTRASONIC_INTERVAL_MS
