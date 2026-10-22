@@ -2,6 +2,7 @@
 
 #include "ax_aoa.h"
 #include "ax_follow_policy.h"
+#include "ax_follow_profile.h"
 #include "ax_follow_avoid_policy.h"
 #include "ax_follow_avoid_diag.h"
 #include "ax_range_pan.h"
@@ -29,27 +30,6 @@ static AX_AVOID_Phase last_diag_phase;
 static AX_AVOID_DiagReason last_diag_reason;
 static uint32_t last_diag_ms;
 
-static const AX_FOLLOW_Config follow_config = {
-    OPENCTR_FOLLOW_START_REVERSE_CM,
-    OPENCTR_FOLLOW_START_FORWARD_CM,
-    OPENCTR_FOLLOW_STOP_FORWARD_CM,
-    OPENCTR_FOLLOW_MAX_DISTANCE_CM,
-    OPENCTR_FOLLOW_START_TURN_DEG,
-    OPENCTR_FOLLOW_STOP_TURN_DEG,
-    OPENCTR_AVOID_FOLLOW_MAX_MM_S,
-    OPENCTR_FOLLOW_TURN_MAX_MRAD_S,
-    OPENCTR_FOLLOW_AZIMUTH_TO_YAW_SIGN,
-    OPENCTR_FOLLOW_FORWARD_MIN_MM_S,
-    OPENCTR_FOLLOW_TURN_MIN_MRAD_S,
-    OPENCTR_FOLLOW_FORWARD_KP_MM_S_PER_CM,
-    OPENCTR_FOLLOW_TURN_KP_MRAD_S_PER_DEG,
-    OPENCTR_FOLLOW_MIN_VALID_DISTANCE_CM,
-    OPENCTR_FOLLOW_STOP_REVERSE_CM,
-    OPENCTR_FOLLOW_REVERSE_MIN_MM_S,
-    OPENCTR_FOLLOW_REVERSE_MAX_MM_S,
-    OPENCTR_FOLLOW_REVERSE_KP_MM_S_PER_CM
-};
-
 static const AX_AVOID_Config avoid_config = {
     .front_stop_mm = OPENCTR_AVOID_FRONT_STOP_MM,
     .front_release_mm = OPENCTR_AVOID_FRONT_RELEASE_MM,
@@ -59,7 +39,6 @@ static const AX_AVOID_Config avoid_config = {
     .track_probe_angle_deg = OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG,
     .track_probe_step_deg = OPENCTR_AVOID_TRACK_PROBE_STEP_DEG,
     .range_max_age_ms = OPENCTR_AVOID_RANGE_MAX_AGE_MS,
-    .aoa_max_age_ms = OPENCTR_AVOID_AOA_MAX_AGE_MS,
     .approach_start_cm = OPENCTR_FOLLOW_START_FORWARD_CM,
     .approach_stop_cm = OPENCTR_FOLLOW_STOP_FORWARD_CM,
     .follow_max_mm_s = OPENCTR_AVOID_FOLLOW_MAX_MM_S,
@@ -115,6 +94,7 @@ void AX_FOLLOW_AVOID_Step(void)
     AX_FOLLOW_Observation observation;
     AX_AVOID_Input input = {0};
     AX_AVOID_Output output;
+    AX_FOLLOW_Config follow_config;
     uint8_t aoa_valid = 0;
     uint16_t aoa_distance_cm = 0;
 
@@ -139,6 +119,7 @@ void AX_FOLLOW_AVOID_Step(void)
         aoa_distance_cm = observation.distance_cm;
         input.aoa_distance_cm = observation.distance_cm;
         observation.azimuth_deg = aoa.measurement.azimuth_deg;
+        follow_config = AX_FOLLOW_Profile(OPENCTR_AVOID_FOLLOW_MAX_MM_S);
         input.follow_target = AX_FOLLOW_Compute(&follow_state,
                                                 &follow_config,
                                                 &observation);

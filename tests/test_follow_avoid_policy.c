@@ -6,13 +6,12 @@
 static const AX_AVOID_Config config = {
     .front_stop_mm = 350,
     .front_release_mm = 650,
-    .side_min_mm = 800,
+    .side_min_mm = 650,
     .scan_max_angle_deg = 90,
     .scan_step_deg = 15,
-    .track_probe_angle_deg = 15,
+    .track_probe_angle_deg = 25,
     .track_probe_step_deg = 5,
     .range_max_age_ms = 250,
-    .aoa_max_age_ms = 300,
     .approach_start_cm = 110,
     .approach_stop_cm = 100,
     .follow_max_mm_s = 300,
@@ -156,7 +155,8 @@ static void assert_recenter_then_rescan(AX_AVOID_State *state,
 static void test_track_probes_while_moving(void)
 {
     static const int16_t path[] = {
-        5, 10, 15, 10, 5, 0, -5, -10, -15, -10, -5, 0, 5
+        5, 10, 15, 20, 25, 20, 15, 10, 5, 0,
+        -5, -10, -15, -20, -25, -20, -15, -10, -5, 0, 5
     };
     AX_AVOID_State state;
     AX_AVOID_Input in = input();
@@ -254,6 +254,25 @@ static void test_track_keeps_pan_centered_at_target_distance(void)
     assert(out.pan_angle_deg == 0 && out.forward_mm_s == 0);
 }
 
+static void test_scan_skips_center_that_cannot_release(void)
+{
+    AX_AVOID_State state;
+    AX_AVOID_Input in = input();
+
+    start_scan(&state, &in);
+    for (int16_t angle = 90; angle >= -90; angle -= 15) {
+        in.now_ms += 350;
+        in.range_angle_deg = angle;
+        in.range_distance_mm = angle == 0 ? 620 :
+                               angle == -45 ? 900 : 350;
+        in.range_triggered_ms = in.now_ms - 20;
+        ++in.range_sequence;
+        AX_AVOID_Step(&state, &config, &in);
+    }
+    assert(state.phase == AX_AVOID_TURN_OUT);
+    assert(state.detour_angle_deg == -45);
+}
+
 int main(void)
 {
     AX_AVOID_State state;
@@ -263,6 +282,7 @@ int main(void)
     test_track_probes_while_moving();
     test_track_stops_if_probe_echo_never_arrives();
     test_track_keeps_pan_centered_at_target_distance();
+    test_scan_skips_center_that_cannot_release();
 
     /* A nearby target does not justify scanning or driving around an
      * obstacle. This applies both on entry and after a clear TRACK fix. */

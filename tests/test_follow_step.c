@@ -51,6 +51,8 @@ int main(void)
     assert(target_forward == 300 && target_yaw == 0);
     follow_at(200, 0, 0);
     assert(target_forward == 300 && target_yaw == 0);
+    follow_at(500, 0, 0); /* a distant AOA target remains followable */
+    assert(target_forward == 300 && target_yaw == 0);
     follow_at(105, 0, 0); /* slow down before the 100 cm stop line */
     assert(target_forward == 150 && target_yaw == 0);
 

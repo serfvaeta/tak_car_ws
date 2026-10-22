@@ -12,7 +12,7 @@
 #define OPENCTR_FOLLOW_STOP_REVERSE_CM 95u
 #define OPENCTR_FOLLOW_START_FORWARD_CM 110u
 #define OPENCTR_FOLLOW_STOP_FORWARD_CM 100u
-#define OPENCTR_FOLLOW_MAX_DISTANCE_CM 300u
+#define OPENCTR_FOLLOW_MAX_DISTANCE_CM 600u
 
 /* Azimuth is in degrees. Turning takes priority over distance control. */
 #define OPENCTR_FOLLOW_START_TURN_DEG 12u

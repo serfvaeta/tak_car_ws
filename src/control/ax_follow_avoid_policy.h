@@ -52,7 +52,6 @@ typedef struct {
     int16_t track_probe_angle_deg;
     int16_t track_probe_step_deg;
     uint16_t range_max_age_ms;
-    uint16_t aoa_max_age_ms;
     uint16_t approach_start_cm;
     uint16_t approach_stop_cm;
     int16_t follow_max_mm_s;

@@ -6,13 +6,12 @@
 static const AX_AVOID_Config config = {
     .front_stop_mm = 350,
     .front_release_mm = 650,
-    .side_min_mm = 800,
+    .side_min_mm = 650,
     .scan_max_angle_deg = 90,
     .scan_step_deg = 15,
-    .track_probe_angle_deg = 15,
+    .track_probe_angle_deg = 25,
     .track_probe_step_deg = 5,
     .range_max_age_ms = 250,
-    .aoa_max_age_ms = 300,
     .approach_start_cm = 110,
     .approach_stop_cm = 100,
     .follow_max_mm_s = 300,
@@ -87,11 +86,10 @@ int main(void)
     out = AX_AVOID_Step(&state, &config, &in);
     assert(state.scan_index == 0 && out.pan_angle_deg == 90);
 
-    /* All 13 points are visited. The shortest qualifying distance wins,
-     * even when that direction requires a larger turn. */
+    /* All 13 points are visited; a reading below 650 mm is excluded. */
     for (angle = 90; angle >= -90; angle -= 15) {
         uint16_t distance = 350;
-        if (angle == 45) distance = 950;
+        if (angle == 45) distance = 550;
         if (angle == -60) distance = 850;
         if (angle == -75) distance = 1200;
         out = sample(&state, &in, angle, distance, AX_XURSC_READY);
@@ -101,7 +99,7 @@ int main(void)
             assert(out.forward_mm_s == 0 && out.yaw_mrad_s == 0);
         }
     }
-    assert(state.scan_distance_mm[3] == 950); /* +45 degrees */
+    assert(state.scan_distance_mm[3] == 550); /* +45 degrees */
     assert(state.scan_distance_mm[10] == 850); /* -60 degrees */
     assert(state.phase == AX_AVOID_TURN_OUT);
     assert(state.detour_angle_deg == -60);
@@ -185,11 +183,14 @@ int main(void)
     assert(state.phase == AX_AVOID_ADVANCE);
     assert(out.forward_mm_s == 100 && out.yaw_mrad_s == 0);
 
-    /* Equal qualifying distances choose the smaller turn. */
+    /* Prefer the smaller turn, then the farther of equal-angle choices. */
     in = input();
     start_scan(&state, &in);
     for (angle = 90; angle >= -90; angle -= 15) {
-        uint16_t distance = angle == 15 || angle == -60 ? 900 : 350;
+        uint16_t distance = 350;
+        if (angle == 45) distance = 1000;
+        if (angle == 15) distance = 700;
+        if (angle == -15) distance = 650;
         sample(&state, &in, angle, distance, AX_XURSC_READY);
     }
     assert(state.phase == AX_AVOID_TURN_OUT);

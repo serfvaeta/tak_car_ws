@@ -226,11 +226,15 @@ static void SelectDirection(AX_AVOID_State *state,
         if ((state->scan_valid_mask & (uint16_t)(1u << i)) == 0u) continue;
         angle = (int16_t)(config->scan_max_angle_deg -
                           i * config->scan_step_deg);
+        /* Center cannot be used until it meets the forward release limit. */
+        if (angle == 0 &&
+            state->scan_distance_mm[i] < config->front_release_mm)
+            continue;
         absolute_angle = angle < 0 ? (int16_t)-angle : angle;
         absolute_best = best_angle < 0 ? (int16_t)-best_angle : best_angle;
-        if (!found || state->scan_distance_mm[i] < best_distance ||
-            (state->scan_distance_mm[i] == best_distance &&
-             absolute_angle < absolute_best)) {
+        if (!found || absolute_angle < absolute_best ||
+            (absolute_angle == absolute_best &&
+             state->scan_distance_mm[i] > best_distance)) {
             found = 1;
             best_distance = state->scan_distance_mm[i];
             best_angle = angle;
@@ -371,6 +375,167 @@ static AX_AVOID_Output StepRejoin(AX_AVOID_State *state,
     return StopOutput(state);
 }
 
+static AX_AVOID_Output StepWaitFront(AX_AVOID_State *state,
+                                     const AX_AVOID_Config *config,
+                                     const AX_AVOID_Input *input)
+{
+    state->pan_angle_deg = 0;
+    if (!input->aoa_valid) return StopOutput(state);
+    if (state->track_wait_fresh_front) {
+        if (!RangeReadyAt(input, 0) ||
+            input->range_sequence == state->track_sample_sequence ||
+            !TickAfter(input->range_triggered_ms, state->phase_start_ms))
+            return StopOutput(state);
+        state->track_wait_fresh_front = 0;
+    }
+    if (state->recovery_rescan) {
+        if (!state->approach_needed) {
+            state->recovery_rescan = 0;
+        } else {
+            if (RangeReadyAt(input, 0) &&
+                input->range_sequence != state->recovery_sequence &&
+                TickAfter(input->range_triggered_ms,
+                          state->recovery_start_ms)) {
+                state->recovery_rescan = 0;
+                EnterScan(state, config, input);
+            }
+            return StopOutput(state);
+        }
+    }
+    if (RangeReadyAt(input, 0)) {
+        if (input->range_distance_mm >= config->front_release_mm) {
+            ClearDetour(state);
+            EnterTrack(state, input);
+        } else if (state->approach_needed) {
+            EnterScan(state, config, input);
+        }
+    }
+    return StopOutput(state);
+}
+
+static AX_AVOID_Output StepTrack(AX_AVOID_State *state,
+                                 const AX_AVOID_Config *config,
+                                 const AX_AVOID_Input *input)
+{
+    AX_AVOID_Output output;
+    if (!state->approach_needed) {
+        /* A close target does not need side probing. */
+        state->pan_angle_deg = 0;
+        state->track_probe_index = 0;
+        if (!RangeReadyAt(input, 0) ||
+            input->range_distance_mm < config->front_release_mm) {
+            EnterWaitFront(state);
+            return StopOutput(state);
+        }
+        state->track_sample_sequence = input->range_sequence - 1u;
+        state->track_last_sample_ms = input->now_ms;
+    } else if (input->range_valid &&
+               input->range_angle_deg == state->pan_angle_deg &&
+               input->range_sequence != state->track_sample_sequence) {
+        if (input->range_status != AX_XURSC_READY) {
+            EnterTrackWaitFront(state, input);
+            return StopOutput(state);
+        }
+        state->track_sample_sequence = input->range_sequence;
+        state->track_last_sample_ms = input->now_ms;
+        if (input->range_distance_mm < config->front_stop_mm) {
+            EnterScan(state, config, input);
+            return StopOutput(state);
+        }
+        AdvanceTrackProbe(state, config);
+    } else if ((uint32_t)(input->now_ms - state->track_last_sample_ms) >=
+               config->range_max_age_ms) {
+        EnterTrackWaitFront(state, input);
+        return StopOutput(state);
+    }
+    output = StopOutput(state);
+    output.forward_mm_s = input->follow_target.forward_mm_s;
+    if (output.forward_mm_s < 0) output.forward_mm_s = 0;
+    if (output.forward_mm_s > config->follow_max_mm_s)
+        output.forward_mm_s = config->follow_max_mm_s;
+    output.yaw_mrad_s = ClampSpeed(input->follow_target.yaw_mrad_s,
+                                   config->yaw_max_mrad_s);
+    return output;
+}
+
+static AX_AVOID_Output StepScanSide(AX_AVOID_State *state,
+                                    const AX_AVOID_Config *config,
+                                    const AX_AVOID_Input *input)
+{
+    if ((uint32_t)(input->now_ms - state->phase_start_ms) >=
+        config->side_scan_timeout_ms) {
+        EnterRescanWait(state, input);
+        return StopOutput(state);
+    }
+    if (input->range_valid &&
+        input->range_sequence != state->scan_wait_sequence) {
+        int16_t expected_angle = (int16_t)(config->scan_max_angle_deg -
+                                  state->scan_index * config->scan_step_deg);
+        if (input->range_angle_deg == expected_angle) {
+            uint8_t count = (uint8_t)(2 * config->scan_max_angle_deg /
+                                      config->scan_step_deg + 1);
+            state->scan_distance_mm[state->scan_index] =
+                input->range_distance_mm;
+            if (input->range_status == AX_XURSC_READY &&
+                input->range_distance_mm >= config->side_min_mm)
+                state->scan_valid_mask |=
+                    (uint16_t)(1u << state->scan_index);
+            state->scan_wait_sequence = input->range_sequence;
+            ++state->scan_index;
+            if (state->scan_index < count)
+                state->pan_angle_deg = (int16_t)(expected_angle -
+                                                 config->scan_step_deg);
+            else
+                SelectDirection(state, config, input);
+        }
+    }
+    return StopOutput(state);
+}
+
+static AX_AVOID_Output StepAdvance(AX_AVOID_State *state,
+                                   const AX_AVOID_Config *config,
+                                   const AX_AVOID_Input *input,
+                                   uint32_t dt_ms)
+{
+    AX_AVOID_Output output;
+    if (!RangeReadyAt(input, 0)) {
+        EnterWaitFront(state);
+        return StopOutput(state);
+    }
+    if (input->range_distance_mm < config->front_stop_mm) {
+        EnterScan(state, config, input);
+        return StopOutput(state);
+    }
+    if (input->forward_mm_s > 0 && dt_ms != 0u) {
+        uint64_t increment = (uint64_t)(uint16_t)input->forward_mm_s *
+                             dt_ms / 1000u;
+        if (increment > UINT32_MAX - state->segment_distance_mm)
+            state->segment_distance_mm = UINT32_MAX;
+        else state->segment_distance_mm += (uint32_t)increment;
+        if (increment > UINT32_MAX - state->total_distance_mm)
+            state->total_distance_mm = UINT32_MAX;
+        else state->total_distance_mm += (uint32_t)increment;
+    }
+    if (config->max_distance_mm != 0u &&
+        state->total_distance_mm >= config->max_distance_mm) {
+        EnterRecovery(state, input, AX_AVOID_DIAG_DISTANCE_LIMIT);
+        return StopOutput(state);
+    }
+    if ((uint32_t)(input->now_ms - state->phase_start_ms) >=
+            config->stall_timeout_ms &&
+        state->segment_distance_mm < config->stall_min_mm) {
+        EnterRecovery(state, input, AX_AVOID_DIAG_ADVANCE_STALL);
+        return StopOutput(state);
+    }
+    if (state->segment_distance_mm >= config->advance_segment_mm) {
+        EnterRejoin(state, input);
+        return StopOutput(state);
+    }
+    output = StopOutput(state);
+    output.forward_mm_s = config->advance_max_mm_s;
+    return output;
+}
+
 void AX_AVOID_Reset(AX_AVOID_State *state)
 {
     if (state == 0) return;
@@ -439,166 +604,23 @@ AX_AVOID_Output AX_AVOID_Step(AX_AVOID_State *state,
 
     switch (state->phase) {
     case AX_AVOID_WAIT_FRONT:
-        state->pan_angle_deg = 0;
-        if (!input->aoa_valid) return StopOutput(state);
-        if (state->track_wait_fresh_front) {
-            if (!RangeReadyAt(input, 0) ||
-                input->range_sequence == state->track_sample_sequence ||
-                !TickAfter(input->range_triggered_ms,
-                           state->phase_start_ms))
-                return StopOutput(state);
-            state->track_wait_fresh_front = 0;
-        }
-        if (state->recovery_rescan) {
-            if (!state->approach_needed) {
-                state->recovery_rescan = 0;
-            } else {
-                if (RangeReadyAt(input, 0) &&
-                    input->range_sequence != state->recovery_sequence &&
-                    TickAfter(input->range_triggered_ms,
-                              state->recovery_start_ms)) {
-                    state->recovery_rescan = 0;
-                    EnterScan(state, config, input);
-                }
-                return StopOutput(state);
-            }
-        }
-        if (RangeReadyAt(input, 0)) {
-            if (input->range_distance_mm >= config->front_release_mm) {
-                ClearDetour(state);
-                EnterTrack(state, input);
-            } else if (state->approach_needed) {
-                EnterScan(state, config, input);
-            }
-        }
-        return StopOutput(state);
-
+        return StepWaitFront(state, config, input);
     case AX_AVOID_TRACK:
-        if (!state->approach_needed) {
-            /* When the target is already close, keep the sensor centered.
-             * A later need to approach can reuse this fresh front sample. */
-            state->pan_angle_deg = 0;
-            state->track_probe_index = 0;
-            if (!RangeReadyAt(input, 0) ||
-                input->range_distance_mm < config->front_release_mm) {
-                EnterWaitFront(state);
-                return StopOutput(state);
-            }
-            state->track_sample_sequence = input->range_sequence - 1u;
-            state->track_last_sample_ms = now_ms;
-        } else if (input->range_valid &&
-            input->range_angle_deg == state->pan_angle_deg &&
-            input->range_sequence != state->track_sample_sequence) {
-            if (input->range_status != AX_XURSC_READY) {
-                EnterTrackWaitFront(state, input);
-                return StopOutput(state);
-            }
-            state->track_sample_sequence = input->range_sequence;
-            state->track_last_sample_ms = now_ms;
-            if (!state->approach_needed &&
-                input->range_distance_mm < config->front_release_mm) {
-                EnterWaitFront(state);
-                return StopOutput(state);
-            }
-            if (input->range_distance_mm < config->front_stop_mm) {
-                EnterScan(state, config, input);
-                return StopOutput(state);
-            }
-            AdvanceTrackProbe(state, config);
-        } else if ((uint32_t)(now_ms - state->track_last_sample_ms) >=
-                   config->range_max_age_ms) {
-            EnterTrackWaitFront(state, input);
-            return StopOutput(state);
-        }
-        output.pan_angle_deg = state->pan_angle_deg;
-        output.forward_mm_s = input->follow_target.forward_mm_s;
-        if (output.forward_mm_s < 0) output.forward_mm_s = 0;
-        if (output.forward_mm_s > config->follow_max_mm_s)
-            output.forward_mm_s = config->follow_max_mm_s;
-        output.yaw_mrad_s = ClampSpeed(input->follow_target.yaw_mrad_s,
-                                       config->yaw_max_mrad_s);
-        return output;
-
+        return StepTrack(state, config, input);
     case AX_AVOID_SCAN_SIDE:
-        if ((uint32_t)(now_ms - state->phase_start_ms) >=
-            config->side_scan_timeout_ms) {
-            EnterRescanWait(state, input);
-            return StopOutput(state);
-        }
-        if (input->range_valid && input->range_sequence !=
-                                  state->scan_wait_sequence) {
-            int16_t expected_angle = (int16_t)(config->scan_max_angle_deg -
-                                state->scan_index * config->scan_step_deg);
-            if (input->range_angle_deg == expected_angle) {
-                uint8_t count = (uint8_t)(2 * config->scan_max_angle_deg /
-                                          config->scan_step_deg + 1);
-                state->scan_distance_mm[state->scan_index] =
-                    input->range_distance_mm;
-                if (input->range_status == AX_XURSC_READY &&
-                    input->range_distance_mm >= config->side_min_mm)
-                    state->scan_valid_mask |=
-                        (uint16_t)(1u << state->scan_index);
-                state->scan_wait_sequence = input->range_sequence;
-                ++state->scan_index;
-                if (state->scan_index < count)
-                    state->pan_angle_deg = (int16_t)(expected_angle -
-                                                     config->scan_step_deg);
-                else
-                    SelectDirection(state, config, input);
-            }
-        }
-        return StopOutput(state);
-
+        return StepScanSide(state, config, input);
     case AX_AVOID_RESCAN_WAIT:
         state->pan_angle_deg = 0;
         if ((uint32_t)(now_ms - state->phase_start_ms) >=
             config->rescan_wait_ms)
             EnterWaitFront(state);
         return StopOutput(state);
-
     case AX_AVOID_TURN_OUT:
         return StepTurnOut(state, config, input, dt_ms);
-
     case AX_AVOID_ADVANCE:
-        if (!RangeReadyAt(input, 0)) {
-            EnterWaitFront(state);
-            return StopOutput(state);
-        }
-        if (input->range_distance_mm < config->front_stop_mm) {
-            EnterScan(state, config, input);
-            return StopOutput(state);
-        }
-        if (input->forward_mm_s > 0 && dt_ms != 0u) {
-            uint64_t increment = (uint64_t)(uint16_t)input->forward_mm_s *
-                                 dt_ms / 1000u;
-            if (increment > UINT32_MAX - state->segment_distance_mm)
-                state->segment_distance_mm = UINT32_MAX;
-            else state->segment_distance_mm += (uint32_t)increment;
-            if (increment > UINT32_MAX - state->total_distance_mm)
-                state->total_distance_mm = UINT32_MAX;
-            else state->total_distance_mm += (uint32_t)increment;
-        }
-        if (config->max_distance_mm != 0u &&
-            state->total_distance_mm >= config->max_distance_mm) {
-            EnterRecovery(state, input, AX_AVOID_DIAG_DISTANCE_LIMIT);
-            return StopOutput(state);
-        }
-        if ((uint32_t)(now_ms - state->phase_start_ms) >=
-                config->stall_timeout_ms &&
-            state->segment_distance_mm < config->stall_min_mm) {
-            EnterRecovery(state, input, AX_AVOID_DIAG_ADVANCE_STALL);
-            return StopOutput(state);
-        }
-        if (state->segment_distance_mm >= config->advance_segment_mm) {
-            EnterRejoin(state, input);
-            return StopOutput(state);
-        }
-        output.forward_mm_s = config->advance_max_mm_s;
-        return output;
-
+        return StepAdvance(state, config, input, dt_ms);
     case AX_AVOID_TRY_REJOIN:
         return StepRejoin(state, config, input, dt_ms);
-
     case AX_AVOID_HOLD:
     default:
         EnterHold(state, AX_AVOID_DIAG_HOLD_UNKNOWN);

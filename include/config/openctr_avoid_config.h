@@ -9,9 +9,9 @@
 /* 正前方 >= 放行距离：允许继续；必须大于停车距离。 */
 #define OPENCTR_AVOID_FRONT_RELEASE_MM 650u
 /* 侧扫读数 >= 此值：该方向可作为绕行候选。 */
-#define OPENCTR_AVOID_SIDE_MIN_MM 800u
-/* TRACK 在 -15° 到 +15° 之间逐格测距。 */
-#define OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG 15
+#define OPENCTR_AVOID_SIDE_MIN_MM 650u
+/* TRACK 在 -25° 到 +25° 之间逐格测距。 */
+#define OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG 25
 #define OPENCTR_AVOID_TRACK_PROBE_STEP_DEG 5
 
 /* 测距节奏。完整换角等待也作用于手动扫描；测量间隔作用于全部超声波模式。 */
