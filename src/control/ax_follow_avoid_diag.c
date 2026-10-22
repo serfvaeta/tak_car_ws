@@ -12,7 +12,6 @@ static uint16_t Limit16(uint32_t value)
 }
 
 static AX_AVOID_DiagReason Explain(const AX_AVOID_State *state,
-                                    const AX_AVOID_Config *config,
                                     const AX_AVOID_Input *input,
                                     const AX_AVOID_Output *output,
                                     uint8_t chassis_fwd)
@@ -22,9 +21,11 @@ static AX_AVOID_DiagReason Explain(const AX_AVOID_State *state,
         return state->hold_reason == AX_AVOID_DIAG_NONE ?
                AX_AVOID_DIAG_HOLD_UNKNOWN : state->hold_reason;
     if (!input->aoa_valid) return AX_AVOID_DIAG_AOA_STALE;
-    if (state->phase == AX_AVOID_WAIT_FRONT && state->recovery_rescan)
+    if (state->phase == AX_AVOID_ALIGN_TARGET &&
+        state->hold_reason != AX_AVOID_DIAG_NONE &&
+        output->forward_mm_s == 0 && output->yaw_mrad_s == 0)
         return state->hold_reason;
-    if (state->phase == AX_AVOID_WAIT_FRONT && state->track_wait_fresh_front)
+    if (state->phase == AX_AVOID_FORWARD && state->track_wait_fresh_front)
         return AX_AVOID_DIAG_FRONT_STALE;
     if (state->phase == AX_AVOID_RESCAN_WAIT)
         return AX_AVOID_DIAG_WAIT_RESCAN;
@@ -33,36 +34,30 @@ static AX_AVOID_DiagReason Explain(const AX_AVOID_State *state,
                                           AX_AVOID_DIAG_WAIT_RIGHT;
     if (output->forward_mm_s != 0 || output->yaw_mrad_s != 0)
         return AX_AVOID_DIAG_NONE;
-    if (state->phase == AX_AVOID_WAIT_FRONT ||
-        state->phase == AX_AVOID_TURN_OUT ||
-        state->phase == AX_AVOID_TRACK ||
-        state->phase == AX_AVOID_ADVANCE ||
-        state->phase == AX_AVOID_TRY_REJOIN) {
+    if (state->phase == AX_AVOID_TURN_OUT ||
+        state->phase == AX_AVOID_FORWARD ||
+        state->phase == AX_AVOID_ADVANCE) {
         if (!input->range_valid || input->range_angle_deg != 0 ||
             input->range_status != AX_XURSC_READY)
             return AX_AVOID_DIAG_FRONT_STALE;
     }
     if (state->phase == AX_AVOID_TURN_OUT)
         return AX_AVOID_DIAG_TURN_CENTER;
-    if (state->phase == AX_AVOID_TRY_REJOIN)
-        return input->range_distance_mm < config->front_release_mm ?
-               AX_AVOID_DIAG_FRONT_CLOSE : AX_AVOID_DIAG_REJOIN_CLEAR;
-    if (state->phase == AX_AVOID_TRACK)
+    if (state->phase == AX_AVOID_ALIGN_TARGET)
         return AX_AVOID_DIAG_FOLLOW_STOP;
-    if (state->phase == AX_AVOID_WAIT_FRONT)
-        return AX_AVOID_DIAG_FRONT_CLOSE;
+    if (state->phase == AX_AVOID_FORWARD)
+        return AX_AVOID_DIAG_FOLLOW_STOP;
     return AX_AVOID_DIAG_NONE;
 }
 
 AX_AVOID_DiagReason AX_AVOID_DiagEncode(const AX_AVOID_State *state,
-                                         const AX_AVOID_Config *config,
                                          const AX_AVOID_Input *input,
                                          const AX_AVOID_Output *output,
                                          uint8_t chassis_fwd,
                                          uint16_t aoa_distance_cm,
                                          uint8_t payload[AX_AVOID_DIAG_LENGTH])
 {
-    AX_AVOID_DiagReason reason = Explain(state, config, input, output,
+    AX_AVOID_DiagReason reason = Explain(state, input, output,
                                          chassis_fwd);
     uint8_t flags = 0;
     uint32_t progress = 0;
@@ -80,8 +75,6 @@ AX_AVOID_DiagReason AX_AVOID_DiagEncode(const AX_AVOID_State *state,
                        (uint32_t)state->turn_progress_mrad : 0u;
         else if (state->phase == AX_AVOID_ADVANCE)
             progress = state->segment_distance_mm;
-        else if (state->phase == AX_AVOID_TRY_REJOIN)
-            progress = state->rejoin_progress_mrad;
     }
     payload[0] = (uint8_t)state->phase;
     payload[1] = (uint8_t)reason;

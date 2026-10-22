@@ -8,12 +8,11 @@
 #define AX_AVOID_SCAN_MAX_POINTS 13
 
 typedef enum {
-    AX_AVOID_WAIT_FRONT = 0,
-    AX_AVOID_TRACK,
+    AX_AVOID_ALIGN_TARGET = 0,
+    AX_AVOID_FORWARD,
     AX_AVOID_SCAN_SIDE,
     AX_AVOID_TURN_OUT,
     AX_AVOID_ADVANCE,
-    AX_AVOID_TRY_REJOIN,
     AX_AVOID_HOLD,
     AX_AVOID_RESCAN_WAIT
 } AX_AVOID_Phase;
@@ -66,8 +65,7 @@ typedef struct {
     uint32_t max_time_ms;
     uint16_t stall_timeout_ms;
     uint16_t stall_min_mm;
-    uint8_t rejoin_clear_samples;
-    uint8_t rejoin_stop_turn_deg;
+    uint8_t align_stop_turn_deg;
     int8_t azimuth_to_yaw_sign;
     uint16_t rescan_wait_ms;
     uint16_t side_scan_timeout_ms;
@@ -108,9 +106,6 @@ typedef struct {
     uint8_t turn_settle_pending;
     uint8_t initialized;
     uint8_t have_tick;
-    uint8_t rejoin_clear_count;
-    uint8_t rejoin_aligned;
-    uint8_t recovery_rescan;
     uint16_t track_probe_index;
     uint8_t track_wait_fresh_front;
     uint32_t scan_wait_sequence;
@@ -125,11 +120,6 @@ typedef struct {
     int32_t turn_target_mrad;
     uint32_t turn_settle_ms;
     uint32_t turn_settle_sequence;
-    uint32_t rejoin_progress_mrad;
-    uint32_t last_rejoin_clear_sequence;
-    uint32_t rejoin_aligned_ms;
-    uint32_t recovery_sequence;
-    uint32_t recovery_start_ms;
     uint16_t scan_valid_mask;
     uint16_t scan_distance_mm[AX_AVOID_SCAN_MAX_POINTS];
 } AX_AVOID_State;

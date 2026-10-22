@@ -4,13 +4,13 @@
 #include "openctr_follow_config.h"
 
 /* 超声波避障距离，单位 mm。调试时优先修改这三项。 */
-/* TRACK 任一探测方向或绕行前方 < 停车距离：停车并扫描。 */
+/* FORWARD 任一探测方向或绕行前方 < 停车距离：停车并扫描。 */
 #define OPENCTR_AVOID_FRONT_STOP_MM 350u
 /* 正前方 >= 放行距离：允许继续；必须大于停车距离。 */
 #define OPENCTR_AVOID_FRONT_RELEASE_MM 400u
 /* 侧扫读数 >= 此值：该方向可作为绕行候选。 */
 #define OPENCTR_AVOID_SIDE_MIN_MM 400u
-/* TRACK 在 -25° 到 +25° 之间逐格测距。 */
+/* FORWARD 在 -25° 到 +25° 之间逐格测距。 */
 #define OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG 25
 #define OPENCTR_AVOID_TRACK_PROBE_STEP_DEG 5
 
@@ -20,7 +20,7 @@
 #define OPENCTR_AVOID_PAN_SETTLE_MS 250u
 #endif
 #ifndef OPENCTR_AVOID_TRACK_PROBE_SETTLE_MS
-/* FOLLOW_AVOID TRACK 中每次 5 度探测换角的等待时间。 */
+/* FOLLOW_AVOID FORWARD 中每次 5 度探测换角的等待时间。 */
 #define OPENCTR_AVOID_TRACK_PROBE_SETTLE_MS 60u
 #endif
 #ifndef OPENCTR_AVOID_ULTRASONIC_INTERVAL_MS
@@ -45,7 +45,6 @@
 #define OPENCTR_AVOID_MAX_TIME_MS 0u
 #define OPENCTR_AVOID_STALL_TIMEOUT_MS 1000u
 #define OPENCTR_AVOID_STALL_MIN_MM 20u
-#define OPENCTR_AVOID_REJOIN_CLEAR_SAMPLES 2u
 #define OPENCTR_AVOID_RESCAN_WAIT_MS 2000u /* 无合格方向时，停车多久再重扫。 */
 #define OPENCTR_AVOID_SIDE_SCAN_TIMEOUT_MS 8000u /* 一轮侧扫的超时。 */
 

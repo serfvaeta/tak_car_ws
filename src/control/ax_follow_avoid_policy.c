@@ -32,11 +32,12 @@ static uint8_t ConfigValid(const AX_AVOID_Config *config)
            config->turn_overshoot_mrad > 0u &&
            config->advance_segment_mm > 0u &&
            config->stall_timeout_ms > 0u &&
-           config->rejoin_clear_samples > 0u &&
            config->rescan_wait_ms > 0u &&
            config->side_scan_timeout_ms > 0u &&
            config->approach_stop_cm > 0u &&
            config->approach_start_cm > config->approach_stop_cm &&
+           config->align_stop_turn_deg > 0u &&
+           config->align_stop_turn_deg <= 90u &&
            (config->azimuth_to_yaw_sign == 1 ||
             config->azimuth_to_yaw_sign == -1);
 }
@@ -59,31 +60,23 @@ static void EnterHold(AX_AVOID_State *state, AX_AVOID_DiagReason reason)
     state->hold_reason = reason;
 }
 
-static void EnterWaitFront(AX_AVOID_State *state)
+static void EnterAlign(AX_AVOID_State *state, const AX_AVOID_Input *input)
 {
-    state->phase = AX_AVOID_WAIT_FRONT;
+    state->phase = AX_AVOID_ALIGN_TARGET;
+    state->phase_start_ms = input->now_ms;
     state->pan_angle_deg = 0;
 }
 
-static void EnterTrack(AX_AVOID_State *state, const AX_AVOID_Input *input)
+static void EnterForward(AX_AVOID_State *state, const AX_AVOID_Input *input)
 {
-    state->phase = AX_AVOID_TRACK;
+    state->phase = AX_AVOID_FORWARD;
+    state->hold_reason = AX_AVOID_DIAG_NONE;
     state->pan_angle_deg = 0;
     state->track_probe_index = 0;
-    /* The centered echo that admitted TRACK is the first probe. Process it
-     * once on the next control step, then move the pan to the positive probe. */
-    state->track_sample_sequence = input->range_sequence - 1u;
-    state->track_last_sample_ms = input->now_ms;
-    state->track_wait_fresh_front = 0;
-}
-
-static void EnterTrackWaitFront(AX_AVOID_State *state,
-                                const AX_AVOID_Input *input)
-{
-    EnterWaitFront(state);
-    state->track_wait_fresh_front = 1;
     state->track_sample_sequence = input->range_sequence;
+    state->track_last_sample_ms = input->now_ms;
     state->phase_start_ms = input->now_ms;
+    state->track_wait_fresh_front = 1;
 }
 
 static void AdvanceTrackProbe(AX_AVOID_State *state,
@@ -126,14 +119,6 @@ static void ClearDetour(AX_AVOID_State *state)
     state->turn_target_mrad = 0;
     state->turn_settle_ms = 0;
     state->turn_settle_sequence = 0;
-    state->rejoin_progress_mrad = 0;
-    state->rejoin_clear_count = 0;
-    state->rejoin_aligned = 0;
-    state->last_rejoin_clear_sequence = 0;
-    state->rejoin_aligned_ms = 0;
-    state->recovery_rescan = 0;
-    state->recovery_sequence = 0;
-    state->recovery_start_ms = 0;
     state->scan_valid_mask = 0;
     memset(state->scan_distance_mm, 0, sizeof(state->scan_distance_mm));
 }
@@ -142,19 +127,15 @@ static void EnterRecovery(AX_AVOID_State *state,
                           const AX_AVOID_Input *input,
                           AX_AVOID_DiagReason reason)
 {
-    /* Discard the failed detour, stop, and require a centered echo triggered
-     * after this point before a new side scan can authorize motion. */
     ClearDetour(state);
-    EnterWaitFront(state);
+    EnterAlign(state, input);
     state->hold_reason = reason;
-    state->recovery_rescan = 1;
-    state->recovery_sequence = input->range_sequence;
-    state->recovery_start_ms = input->now_ms;
 }
 
 static void EnterScan(AX_AVOID_State *state, const AX_AVOID_Config *config,
                       const AX_AVOID_Input *input)
 {
+    state->hold_reason = AX_AVOID_DIAG_NONE;
     if (!state->detour_active) {
         state->detour_active = 1;
         state->detour_start_ms = input->now_ms;
@@ -185,17 +166,6 @@ static void AddTurnProgress(int32_t *progress, int16_t yaw_rate_mrad_s,
     if (next > INT32_MAX) *progress = INT32_MAX;
     else if (next < INT32_MIN) *progress = INT32_MIN;
     else *progress = (int32_t)next;
-}
-
-static void AddAbsoluteYaw(uint32_t *progress, int16_t yaw_rate_mrad_s,
-                           uint32_t dt_ms)
-{
-    int32_t rate = yaw_rate_mrad_s;
-    uint64_t delta;
-    if (rate < 0) rate = -rate;
-    delta = (uint64_t)(uint32_t)rate * dt_ms / 1000u;
-    if (delta > UINT32_MAX - *progress) *progress = UINT32_MAX;
-    else *progress += (uint32_t)delta;
 }
 
 static void EnterTurnOut(AX_AVOID_State *state, const AX_AVOID_Input *input)
@@ -246,7 +216,7 @@ static void SelectDirection(AX_AVOID_State *state,
     }
     if (best_angle == 0) {
         ClearDetour(state);
-        EnterWaitFront(state);
+        EnterAlign(state, input);
         return;
     }
     state->detour_angle_deg = best_angle;
@@ -255,16 +225,6 @@ static void SelectDirection(AX_AVOID_State *state,
         ((uint32_t)(best_angle < 0 ? -best_angle : best_angle) * 3142u + 90u)
         / 180u;
     EnterTurnOut(state, input);
-}
-
-static void EnterRejoin(AX_AVOID_State *state, const AX_AVOID_Input *input)
-{
-    state->phase = AX_AVOID_TRY_REJOIN;
-    state->phase_start_ms = input->now_ms;
-    state->rejoin_progress_mrad = 0;
-    state->rejoin_clear_count = 0;
-    state->rejoin_aligned = 0;
-    state->last_rejoin_clear_sequence = input->range_sequence;
 }
 
 static AX_AVOID_Output StepTurnOut(AX_AVOID_State *state,
@@ -284,7 +244,10 @@ static AX_AVOID_Output StepTurnOut(AX_AVOID_State *state,
         return StopOutput(state);
     }
     if (!RangeReadyAt(input, 0)) {
-        if (state->turn_front_ready_seen) EnterWaitFront(state);
+        if (state->turn_front_ready_seen) {
+            ClearDetour(state);
+            EnterAlign(state, input);
+        }
         return StopOutput(state);
     }
     state->turn_front_ready_seen = 1;
@@ -331,109 +294,64 @@ static AX_AVOID_Output StepTurnOut(AX_AVOID_State *state,
     return output;
 }
 
-static AX_AVOID_Output StepRejoin(AX_AVOID_State *state,
-                                  const AX_AVOID_Config *config,
-                                  const AX_AVOID_Input *input,
-                                  uint32_t dt_ms)
+static AX_AVOID_Output StepAlignTarget(AX_AVOID_State *state,
+                                       const AX_AVOID_Config *config,
+                                       const AX_AVOID_Input *input)
 {
     AX_AVOID_Output output = StopOutput(state);
     int32_t azimuth = input->aoa_azimuth_deg;
     uint32_t absolute_azimuth = (uint32_t)(azimuth < 0 ? -azimuth : azimuth);
 
-    if (absolute_azimuth > config->rejoin_stop_turn_deg) {
-        int8_t direction;
-        state->rejoin_aligned = 0;
-        state->rejoin_clear_count = 0;
-        AddAbsoluteYaw(&state->rejoin_progress_mrad,
-                       input->yaw_rate_mrad_s, dt_ms);
-        direction = (int8_t)((azimuth > 0 ? 1 : -1) *
-                             config->azimuth_to_yaw_sign);
-        output.yaw_mrad_s = (int16_t)(direction * config->yaw_max_mrad_s);
+    if (absolute_azimuth > config->align_stop_turn_deg ||
+        input->follow_target.yaw_mrad_s != 0) {
+        int16_t yaw = input->follow_target.yaw_mrad_s;
+        if (yaw == 0)
+            yaw = (int16_t)((azimuth > 0 ? 1 : -1) *
+                            config->azimuth_to_yaw_sign *
+                            config->yaw_max_mrad_s);
+        output.yaw_mrad_s = ClampSpeed(yaw, config->yaw_max_mrad_s);
         return output;
     }
-    if (!state->rejoin_aligned) {
-        state->rejoin_aligned = 1;
-        state->rejoin_aligned_ms = input->now_ms;
-        state->last_rejoin_clear_sequence = input->range_sequence;
-        return StopOutput(state);
-    }
-    if (!RangeReadyAt(input, 0)) return StopOutput(state);
-    if (input->range_sequence == state->last_rejoin_clear_sequence ||
-        !TickAfter(input->range_triggered_ms, state->rejoin_aligned_ms))
-        return StopOutput(state);
-    if (input->range_distance_mm < config->front_release_mm) {
-        EnterScan(state, config, input);
-        return StopOutput(state);
-    }
-    state->last_rejoin_clear_sequence = input->range_sequence;
-    if (state->rejoin_clear_count < UINT8_MAX)
-        ++state->rejoin_clear_count;
-    if (state->rejoin_clear_count >= config->rejoin_clear_samples) {
-        ClearDetour(state);
-        EnterTrack(state, input);
-    }
-    return StopOutput(state);
+    if (!state->approach_needed) return output;
+    EnterForward(state, input);
+    return output;
 }
 
-static AX_AVOID_Output StepWaitFront(AX_AVOID_State *state,
-                                     const AX_AVOID_Config *config,
-                                     const AX_AVOID_Input *input)
+static AX_AVOID_Output StepForward(AX_AVOID_State *state,
+                                   const AX_AVOID_Config *config,
+                                   const AX_AVOID_Input *input)
 {
-    state->pan_angle_deg = 0;
-    if (!input->aoa_valid) return StopOutput(state);
+    AX_AVOID_Output output;
+    if (!state->approach_needed) {
+        EnterAlign(state, input);
+        return StopOutput(state);
+    }
+    if ((uint32_t)(input->aoa_azimuth_deg < 0 ?
+                   -input->aoa_azimuth_deg : input->aoa_azimuth_deg) >
+        config->align_stop_turn_deg ||
+        input->follow_target.yaw_mrad_s != 0) {
+        EnterAlign(state, input);
+        return StepAlignTarget(state, config, input);
+    }
     if (state->track_wait_fresh_front) {
         if (!RangeReadyAt(input, 0) ||
             input->range_sequence == state->track_sample_sequence ||
             !TickAfter(input->range_triggered_ms, state->phase_start_ms))
             return StopOutput(state);
         state->track_wait_fresh_front = 0;
-    }
-    if (state->recovery_rescan) {
-        if (!state->approach_needed) {
-            state->recovery_rescan = 0;
-        } else {
-            if (RangeReadyAt(input, 0) &&
-                input->range_sequence != state->recovery_sequence &&
-                TickAfter(input->range_triggered_ms,
-                          state->recovery_start_ms)) {
-                state->recovery_rescan = 0;
-                EnterScan(state, config, input);
-            }
-            return StopOutput(state);
-        }
-    }
-    if (RangeReadyAt(input, 0)) {
-        if (input->range_distance_mm >= config->front_release_mm) {
-            ClearDetour(state);
-            EnterTrack(state, input);
-        } else if (state->approach_needed) {
-            EnterScan(state, config, input);
-        }
-    }
-    return StopOutput(state);
-}
-
-static AX_AVOID_Output StepTrack(AX_AVOID_State *state,
-                                 const AX_AVOID_Config *config,
-                                 const AX_AVOID_Input *input)
-{
-    AX_AVOID_Output output;
-    if (!state->approach_needed) {
-        /* A close target does not need side probing. */
-        state->pan_angle_deg = 0;
-        state->track_probe_index = 0;
-        if (!RangeReadyAt(input, 0) ||
-            input->range_distance_mm < config->front_release_mm) {
-            EnterWaitFront(state);
-            return StopOutput(state);
-        }
-        state->track_sample_sequence = input->range_sequence - 1u;
+        state->track_sample_sequence = input->range_sequence;
         state->track_last_sample_ms = input->now_ms;
-    } else if (input->range_valid &&
+        if (input->range_distance_mm < config->front_release_mm) {
+            EnterScan(state, config, input);
+            return StopOutput(state);
+        }
+        AdvanceTrackProbe(state, config);
+    }
+    if (input->range_valid &&
                input->range_angle_deg == state->pan_angle_deg &&
                input->range_sequence != state->track_sample_sequence) {
         if (input->range_status != AX_XURSC_READY) {
-            EnterTrackWaitFront(state, input);
+            EnterAlign(state, input);
             return StopOutput(state);
         }
         state->track_sample_sequence = input->range_sequence;
@@ -445,7 +363,7 @@ static AX_AVOID_Output StepTrack(AX_AVOID_State *state,
         AdvanceTrackProbe(state, config);
     } else if ((uint32_t)(input->now_ms - state->track_last_sample_ms) >=
                config->range_max_age_ms) {
-        EnterTrackWaitFront(state, input);
+        EnterAlign(state, input);
         return StopOutput(state);
     }
     output = StopOutput(state);
@@ -453,8 +371,7 @@ static AX_AVOID_Output StepTrack(AX_AVOID_State *state,
     if (output.forward_mm_s < 0) output.forward_mm_s = 0;
     if (output.forward_mm_s > config->follow_max_mm_s)
         output.forward_mm_s = config->follow_max_mm_s;
-    output.yaw_mrad_s = ClampSpeed(input->follow_target.yaw_mrad_s,
-                                   config->yaw_max_mrad_s);
+    output.yaw_mrad_s = 0;
     return output;
 }
 
@@ -499,7 +416,8 @@ static AX_AVOID_Output StepAdvance(AX_AVOID_State *state,
 {
     AX_AVOID_Output output;
     if (!RangeReadyAt(input, 0)) {
-        EnterWaitFront(state);
+        ClearDetour(state);
+        EnterAlign(state, input);
         return StopOutput(state);
     }
     if (input->range_distance_mm < config->front_stop_mm) {
@@ -528,7 +446,8 @@ static AX_AVOID_Output StepAdvance(AX_AVOID_State *state,
         return StopOutput(state);
     }
     if (state->segment_distance_mm >= config->advance_segment_mm) {
-        EnterRejoin(state, input);
+        ClearDetour(state);
+        EnterAlign(state, input);
         return StopOutput(state);
     }
     output = StopOutput(state);
@@ -540,7 +459,7 @@ void AX_AVOID_Reset(AX_AVOID_State *state)
 {
     if (state == 0) return;
     memset(state, 0, sizeof(*state));
-    state->phase = AX_AVOID_WAIT_FRONT;
+    state->phase = AX_AVOID_ALIGN_TARGET;
     state->initialized = 1;
 }
 
@@ -568,19 +487,17 @@ AX_AVOID_Output AX_AVOID_Step(AX_AVOID_State *state,
 
     /* Stationary observation must not exhaust the moving-detour timer. */
     if (state->detour_active &&
-        (state->phase == AX_AVOID_WAIT_FRONT ||
+        (state->phase == AX_AVOID_ALIGN_TARGET ||
          state->phase == AX_AVOID_SCAN_SIDE ||
          state->phase == AX_AVOID_RESCAN_WAIT))
         state->detour_start_ms += dt_ms;
 
     if (state->phase == AX_AVOID_HOLD) return output;
     if (!input->aoa_valid) {
-        /* The follow policy also drops its advance latch on AOA loss. */
         state->approach_needed = 0;
-        if (state->phase != AX_AVOID_WAIT_FRONT) {
-            EnterWaitFront(state);
-            return StopOutput(state);
-        }
+        ClearDetour(state);
+        EnterAlign(state, input);
+        return StopOutput(state);
     } else if (input->aoa_distance_cm >= config->approach_start_cm) {
         state->approach_needed = 1;
     } else if (input->aoa_distance_cm <= config->approach_stop_cm) {
@@ -588,7 +505,7 @@ AX_AVOID_Output AX_AVOID_Step(AX_AVOID_State *state,
     }
     if (!state->approach_needed && state->detour_active) {
         ClearDetour(state);
-        EnterWaitFront(state);
+        EnterAlign(state, input);
         return StopOutput(state);
     }
     if (state->detour_active && config->max_time_ms != 0u &&
@@ -603,24 +520,22 @@ AX_AVOID_Output AX_AVOID_Step(AX_AVOID_State *state,
     }
 
     switch (state->phase) {
-    case AX_AVOID_WAIT_FRONT:
-        return StepWaitFront(state, config, input);
-    case AX_AVOID_TRACK:
-        return StepTrack(state, config, input);
+    case AX_AVOID_ALIGN_TARGET:
+        return StepAlignTarget(state, config, input);
+    case AX_AVOID_FORWARD:
+        return StepForward(state, config, input);
     case AX_AVOID_SCAN_SIDE:
         return StepScanSide(state, config, input);
     case AX_AVOID_RESCAN_WAIT:
         state->pan_angle_deg = 0;
         if ((uint32_t)(now_ms - state->phase_start_ms) >=
             config->rescan_wait_ms)
-            EnterWaitFront(state);
+            EnterAlign(state, input);
         return StopOutput(state);
     case AX_AVOID_TURN_OUT:
         return StepTurnOut(state, config, input, dt_ms);
     case AX_AVOID_ADVANCE:
         return StepAdvance(state, config, input, dt_ms);
-    case AX_AVOID_TRY_REJOIN:
-        return StepRejoin(state, config, input, dt_ms);
     case AX_AVOID_HOLD:
     default:
         EnterHold(state, AX_AVOID_DIAG_HOLD_UNKNOWN);

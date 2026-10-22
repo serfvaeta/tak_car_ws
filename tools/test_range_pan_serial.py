@@ -44,12 +44,12 @@ class RangePanProtocolTests(unittest.TestCase):
         payload = bytes((0, 1, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
         description = describe_frame(0x16, payload)
-        self.assertIn("WAIT_FRONT", description)
+        self.assertIn("ALIGN_TARGET", description)
         self.assertIn("AOA_STALE", description)
         self.assertIn("FWD", description)
 
     def test_avoid_retry_state_is_reported_as_waiting(self):
-        payload = bytes((7, 21, 0x0F, 0, 0, 4, 0, 130, 0, 3, 2, 88,
+        payload = bytes((6, 21, 0x0F, 0, 0, 4, 0, 130, 0, 3, 2, 88,
                          0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0))
         description = describe_frame(0x16, payload)
         self.assertIn("RESCAN_WAIT", description)

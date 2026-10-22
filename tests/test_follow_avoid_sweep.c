@@ -25,8 +25,7 @@ static const AX_AVOID_Config config = {
     .max_time_ms = 25000,
     .stall_timeout_ms = 1000,
     .stall_min_mm = 20,
-    .rejoin_clear_samples = 2,
-    .rejoin_stop_turn_deg = 5,
+    .align_stop_turn_deg = 5,
     .azimuth_to_yaw_sign = 1,
     .rescan_wait_ms = 2000,
     .side_scan_timeout_ms = 8000
@@ -49,8 +48,15 @@ static void start_scan(AX_AVOID_State *state, AX_AVOID_Input *in)
 {
     AX_AVOID_Reset(state);
     AX_AVOID_Step(state, &config, in);
-    assert(state->phase == AX_AVOID_TRACK);
-    in->now_ms = 20;
+    assert(state->phase == AX_AVOID_FORWARD);
+    in->now_ms = 100;
+    in->range_triggered_ms = 80;
+    ++in->range_sequence;
+    AX_AVOID_Step(state, &config, in);
+    assert(state->phase == AX_AVOID_FORWARD);
+    in->now_ms = 120;
+    in->range_angle_deg = 5;
+    ++in->range_sequence;
     in->range_distance_mm = 330;
     ++in->range_sequence;
     AX_AVOID_Output out = AX_AVOID_Step(state, &config, in);
@@ -254,7 +260,7 @@ int main(void)
     in = input();
     start_scan(&state, &in);
     sample(&state, &in, 90, 900, AX_XURSC_READY);
-    in.now_ms = 8020;
+    in.now_ms = 8120;
     in.range_valid = 0;
     out = AX_AVOID_Step(&state, &config, &in);
     assert(state.phase == AX_AVOID_RESCAN_WAIT);

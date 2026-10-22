@@ -8,8 +8,8 @@ import time
 
 BAUDRATE = 230400
 STATUS_NAMES = {3: "READY", 4: "TIMEOUT", 5: "OUT_OF_RANGE"}
-AVOID_PHASES = ("WAIT_FRONT", "TRACK", "SCAN_SIDE", "TURN_OUT",
-                "ADVANCE", "TRY_REJOIN", "HOLD", "RESCAN_WAIT")
+AVOID_PHASES = ("ALIGN_TARGET", "FORWARD", "SCAN_SIDE", "TURN_OUT",
+                "ADVANCE", "HOLD", "RESCAN_WAIT")
 AVOID_REASONS = ("NONE", "AOA_STALE", "FRONT_STALE", "WAIT_LEFT",
                  "WAIT_RIGHT", "NO_SIDE", "TURN_CENTER", "TURN_TIMEOUT",
                  "TURN_BLOCKED", "ADVANCE_STALL", "DISTANCE_LIMIT",
@@ -66,7 +66,7 @@ def describe_frame(frame_id: int, payload: bytes) -> str | None:
         aoa_text = f"{azimuth}°/{aoa_cm}cm" if flags & 1 else "无效"
         range_text = (f"{range_angle}°/{range_mm}mm/{STATUS_NAMES.get(status, status)}"
                       if flags & 2 else "无效")
-        progress_unit = "mrad" if phase in (3, 5) else "mm"
+        progress_unit = "mrad" if phase == 3 else "mm"
         return (f"AVOID {phase_name} 原因={reason_name}({reason_hint}) "
                 f"底盘={'FWD' if flags & 4 else 'MEC'} "
                 f"舵机={pan}° AOA={aoa_text} 超声波={range_text} "

@@ -1,101 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="2050" height="1110" viewBox="0 0 2050 1110">
-<rect width="2050" height="1110" fill="#f8fafc"/>
-<polyline points="35,405 70,405" fill="none" stroke="#64748b" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="70.0,405.0 57.0,412.5 57.0,397.5" fill="#64748b"/>
-<polyline points="340,405 385,405" fill="none" stroke="#64748b" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="385.0,405.0 372.0,412.5 372.0,397.5" fill="#64748b"/>
-<polyline points="655,405 700,405" fill="none" stroke="#64748b" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="700.0,405.0 687.0,412.5 687.0,397.5" fill="#64748b"/>
-<polyline points="970,405 1015,405" fill="none" stroke="#64748b" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="1015.0,405.0 1002.0,412.5 1002.0,397.5" fill="#64748b"/>
-<polyline points="1285,405 1330,405" fill="none" stroke="#64748b" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="1330.0,405.0 1317.0,412.5 1317.0,397.5" fill="#64748b"/>
-<polyline points="1600,405 1645,405" fill="none" stroke="#64748b" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="1645.0,405.0 1632.0,412.5 1632.0,397.5" fill="#64748b"/>
-<polyline points="205,330 205,255 745,255 745,330" fill="none" stroke="#64748b" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="745.0,330.0 737.5,317.0 752.5,317.0" fill="#64748b"/>
-<polyline points="1150,330 1150,210 830,210 830,330" fill="none" stroke="#64748b" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="830.0,330.0 822.5,317.0 837.5,317.0" fill="#64748b"/>
-<polyline points="1460,330 1460,165 905,165 905,330" fill="none" stroke="#64748b" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="905.0,330.0 897.5,317.0 912.5,317.0" fill="#64748b"/>
-<polyline points="835,480 835,620" fill="none" stroke="#64748b" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="835.0,620.0 827.5,607.0 842.5,607.0" fill="#64748b"/>
-<polyline points="1150,480 1150,620" fill="none" stroke="#dc2626" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="1150.0,620.0 1142.5,607.0 1157.5,607.0" fill="#dc2626"/>
-<polyline points="1465,480 1465,580 1295,580 1295,675 1285,675" fill="none" stroke="#dc2626" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="1285.0,675.0 1298.0,667.5 1298.0,682.5" fill="#dc2626"/>
-<polyline points="1015,675 980,675 980,540 950,540 950,480" fill="none" stroke="#64748b" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="950.0,480.0 957.5,493.0 942.5,493.0" fill="#64748b"/>
-<polyline points="700,675 355,675 355,440 340,440" fill="none" stroke="#64748b" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="340.0,440.0 353.0,432.5 353.0,447.5" fill="#64748b"/>
-<polyline points="1720,480 1720,825 995,825 995,440 970,440" fill="none" stroke="#64748b" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="970.0,440.0 983.0,432.5 983.0,447.5" fill="#64748b"/>
-<polyline points="1835,480 1835,935 520,935 520,480" fill="none" stroke="#16a34a" stroke-width="4" stroke-linejoin="round"/>
-<polygon points="520.0,480.0 527.5,493.0 512.5,493.0" fill="#16a34a"/>
-<rect x="70" y="330" width="270" height="150" rx="20" fill="#e0f2fe" stroke="#38bdf8" stroke-width="3"/>
-<text x="205" y="370" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="25" font-weight="700" fill="#132238">WAIT_FRONT</text>
-<text x="205" y="413" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">停车，舵机回中</text>
-<text x="205" y="442" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">等待有效前方测距</text>
-<rect x="385" y="330" width="270" height="150" rx="20" fill="#dcfce7" stroke="#4ade80" stroke-width="3"/>
-<text x="520" y="370" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="25" font-weight="700" fill="#132238">TRACK</text>
-<text x="520" y="413" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">±15°内每隔 5°往返测距</text>
-<text x="520" y="442" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">换角等 60 ms，继续行驶</text>
-<rect x="700" y="330" width="270" height="150" rx="20" fill="#e0f2fe" stroke="#38bdf8" stroke-width="3"/>
-<text x="835" y="370" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="25" font-weight="700" fill="#132238">SCAN_SIDE</text>
-<text x="835" y="413" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">停车扫描左右</text>
-<text x="835" y="442" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">寻找可绕行方向</text>
-<rect x="1015" y="330" width="270" height="150" rx="20" fill="#fef3c7" stroke="#f59e0b" stroke-width="3"/>
-<text x="1150" y="370" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="25" font-weight="700" fill="#132238">TURN_OUT</text>
-<text x="1150" y="413" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">回中、转向、停稳、测距</text>
-<text x="1150" y="442" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">整次动作限时 5 秒</text>
-<rect x="1330" y="330" width="270" height="150" rx="20" fill="#fef3c7" stroke="#f59e0b" stroke-width="3"/>
-<text x="1465" y="370" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="25" font-weight="700" fill="#132238">ADVANCE</text>
-<text x="1465" y="413" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">低速前进</text>
-<text x="1465" y="442" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">每段最多 150 mm</text>
-<rect x="1645" y="330" width="270" height="150" rx="20" fill="#ede9fe" stroke="#a78bfa" stroke-width="3"/>
-<text x="1780" y="370" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="25" font-weight="700" fill="#132238">TRY_REJOIN</text>
-<text x="1780" y="413" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">按最新 AOA 原地对准</text>
-<text x="1780" y="442" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">转向没有 5 秒限制</text>
-<rect x="700" y="620" width="270" height="110" rx="20" fill="#e0f2fe" stroke="#38bdf8" stroke-width="3"/>
-<text x="835" y="653" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="25" font-weight="700" fill="#132238">RESCAN_WAIT</text>
-<text x="835" y="687" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">停车等待 2 秒</text>
-<text x="835" y="713" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">再判断前方</text>
-<rect x="1015" y="620" width="270" height="110" rx="20" fill="#e0f2fe" stroke="#38bdf8" stroke-width="3"/>
-<text x="1150" y="653" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="25" font-weight="700" fill="#132238">WAIT_FRONT 恢复</text>
-<text x="1150" y="687" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">停车，舵机回中</text>
-<text x="1150" y="713" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">新前方测距后重扫</text>
-<rect x="321.5" y="502" width="81" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="362" y="520" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">≥ 400</text>
-<rect x="577.5" y="502" width="199" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="677" y="520" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">任一探测方向 ＜ 350</text>
-<rect x="930.5" y="502" width="123" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="992" y="520" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">侧向 ≥ 400</text>
-<rect x="1236.0" y="502" width="142" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="1307" y="520" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">新方向 ≥ 400</text>
-<rect x="1552.5" y="502" width="139" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="1622" y="520" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">前进 150 mm</text>
-<rect x="347.0" y="220" width="256" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="475" y="238" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">前方 ＜ 400，仍需接近目标</text>
-<rect x="882.0" y="175" width="216" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="990" y="193" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">新方向受阻或转角过冲</text>
-<rect x="1141.0" y="130" width="218" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="1250" y="148" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">前方 ＜ 350，重新扫描</text>
-<rect x="747.5" y="547" width="175" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="835" y="565" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">无通路 / 扫描超时</text>
-<rect x="1070.5" y="547" width="159" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="1150" y="565" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#b91c1c">整次转向满 5 秒</text>
-<rect x="1329.0" y="545" width="102" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="1380" y="563" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#b91c1c">前进卡住</text>
-<rect x="384.0" y="640" width="102" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="435" y="658" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">等待结束</text>
-<rect x="1213.5" y="788" width="313" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="1370" y="806" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">对准后，新测距 ＜ 400：重新绕行</text>
-<rect x="986.0" y="898" width="408" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="1190" y="916" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#166534">对准后，两次不同新测距均 ≥ 400：恢复跟随</text>
-<text x="570" y="57" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="38" font-weight="700" fill="#132238">FOLLOW_AVOID 当前避障跟随流程</text>
-<text x="493" y="103" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="22" font-weight="400" fill="#475569">前方距离单位：mm  ·  箭头表示状态切换</text>
-<rect x="70" y="982" width="1845" height="102" rx="15" fill="#eef2f7" stroke="#cbd5e1" stroke-width="1"/>
-<text x="992" y="1007" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="20" font-weight="400" fill="#132238">TRY_REJOIN：AOA 偏差 ＞ 12° 时持续原地转；测距无效则停车等待。</text>
-<text x="992" y="1034" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="20" font-weight="400" fill="#132238">TRACK 连续 250 ms 无新测距则停车回中；TURN_OUT / ADVANCE 测距失效也回 WAIT_FRONT。</text>
-<text x="992" y="1061" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="20" font-weight="400" fill="#132238">AOA 失效则停车回 WAIT_FRONT；目标够近时保持 0°；只有配置错误等不可恢复故障进入 HOLD。</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650">
+<rect width="100%" height="100%" fill="#f8fafc"/>
+<text x="600" y="45" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="36" fill="#172033">FOLLOW_AVOID 控制循环</text>
+<rect x="70" y="140" width="280" height="120" rx="18" fill="#e0e7ff" stroke="#64748b" stroke-width="2"/>
+<text x="210" y="178" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="27" fill="#172033">ALIGN_TARGET</text>
+<text x="210" y="224" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" fill="#172033">每轮先按 AOA 转向</text>
+<rect x="460" y="140" width="280" height="120" rx="18" fill="#dcfce7" stroke="#64748b" stroke-width="2"/>
+<text x="600" y="178" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="27" fill="#172033">FORWARD</text>
+<text x="600" y="224" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" fill="#172033">前进并持续测距</text>
+<rect x="850" y="140" width="280" height="120" rx="18" fill="#e0f2fe" stroke="#64748b" stroke-width="2"/>
+<text x="990" y="178" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="27" fill="#172033">SCAN_SIDE</text>
+<text x="990" y="224" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" fill="#172033">遇障停车，选可走方向</text>
+<rect x="850" y="400" width="280" height="120" rx="18" fill="#fef3c7" stroke="#64748b" stroke-width="2"/>
+<text x="990" y="438" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="27" fill="#172033">TURN_OUT</text>
+<text x="990" y="484" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" fill="#172033">向可走方向转向</text>
+<rect x="460" y="400" width="280" height="120" rx="18" fill="#fef3c7" stroke="#64748b" stroke-width="2"/>
+<text x="600" y="438" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="27" fill="#172033">ADVANCE</text>
+<text x="600" y="484" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" fill="#172033">低速绕行 150 mm</text>
+<polyline points="350,200 460,200" fill="none" stroke="#475569" stroke-width="4"/>
+<polygon points="460.0,200.0 447.9,207.0 447.9,193.0" fill="#475569"/>
+<polyline points="740,200 850,200" fill="none" stroke="#475569" stroke-width="4"/>
+<polygon points="850.0,200.0 837.9,207.0 837.9,193.0" fill="#475569"/>
+<polyline points="990,260 990,400" fill="none" stroke="#475569" stroke-width="4"/>
+<polygon points="990.0,400.0 983.0,387.9 997.0,387.9" fill="#475569"/>
+<polyline points="850,460 740,460" fill="none" stroke="#475569" stroke-width="4"/>
+<polygon points="740.0,460.0 752.1,453.0 752.1,467.0" fill="#475569"/>
+<polyline points="460,460 210,460 210,260" fill="none" stroke="#475569" stroke-width="4"/>
+<polygon points="210.0,260.0 217.0,272.1 203.0,272.1" fill="#475569"/>
+<polyline points="600,140 600,105 210,105 210,140" fill="none" stroke="#475569" stroke-width="4"/>
+<polygon points="210.0,140.0 203.0,127.9 217.0,127.9" fill="#475569"/>
+<text x="405" y="175" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="22" fill="#172033">对准后</text>
+<text x="795" y="175" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="22" fill="#172033">发现障碍</text>
+<text x="1020" y="330" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="22" fill="#172033">选路</text>
+<text x="795" y="435" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="22" fill="#172033">前方通畅</text>
+<text x="330" y="488" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="22" fill="#172033">绕行结束，再转向</text>
+<text x="430" y="85" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="22" fill="#172033">方向偏了，重新转向</text>
+<text x="600" y="590" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="20" fill="#172033">转向阶段不避障；进入前进阶段后，先确认新的前向测距再行驶。</text>
 </svg>

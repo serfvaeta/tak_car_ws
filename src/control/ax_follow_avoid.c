@@ -53,8 +53,7 @@ static const AX_AVOID_Config avoid_config = {
     .max_time_ms = OPENCTR_AVOID_MAX_TIME_MS,
     .stall_timeout_ms = OPENCTR_AVOID_STALL_TIMEOUT_MS,
     .stall_min_mm = OPENCTR_AVOID_STALL_MIN_MM,
-    .rejoin_clear_samples = OPENCTR_AVOID_REJOIN_CLEAR_SAMPLES,
-    .rejoin_stop_turn_deg = OPENCTR_FOLLOW_START_TURN_DEG,
+    .align_stop_turn_deg = OPENCTR_FOLLOW_START_TURN_DEG,
     .azimuth_to_yaw_sign = OPENCTR_AVOID_AZIMUTH_TO_YAW_SIGN,
     .rescan_wait_ms = OPENCTR_AVOID_RESCAN_WAIT_MS,
     .side_scan_timeout_ms = OPENCTR_AVOID_SIDE_SCAN_TIMEOUT_MS
@@ -74,7 +73,7 @@ static void SendAvoidDiag(const AX_AVOID_Input *input,
 {
     uint8_t payload[AX_AVOID_DIAG_LENGTH];
     AX_AVOID_DiagReason reason = AX_AVOID_DiagEncode(
-        &avoid_state, &avoid_config, input, output, chassis_fwd,
+        &avoid_state, input, output, chassis_fwd,
         aoa_distance_cm, payload);
     if (!diag_active || avoid_state.phase != last_diag_phase ||
         reason != last_diag_reason ||
@@ -142,7 +141,7 @@ void AX_FOLLOW_AVOID_Step(void)
     input.yaw_rate_mrad_s = (int16_t)(((int32_t)R_Imu.GYRO_Z * 8727) / 32768);
     input.forward_mm_s = R_Vel.RT_IX;
     output = AX_AVOID_Step(&avoid_state, &avoid_config, &input);
-    if (avoid_state.phase == AX_AVOID_TRACK)
+    if (avoid_state.phase == AX_AVOID_FORWARD)
         AX_RANGE_PAN_AvoidRequestProbeAngle(output.pan_angle_deg);
     else
         AX_RANGE_PAN_AvoidRequestAngle(output.pan_angle_deg);
