@@ -7,9 +7,9 @@
 /* TRACK 任一探测方向或绕行前方 < 停车距离：停车并扫描。 */
 #define OPENCTR_AVOID_FRONT_STOP_MM 350u
 /* 正前方 >= 放行距离：允许继续；必须大于停车距离。 */
-#define OPENCTR_AVOID_FRONT_RELEASE_MM 650u
+#define OPENCTR_AVOID_FRONT_RELEASE_MM 400u
 /* 侧扫读数 >= 此值：该方向可作为绕行候选。 */
-#define OPENCTR_AVOID_SIDE_MIN_MM 650u
+#define OPENCTR_AVOID_SIDE_MIN_MM 400u
 /* TRACK 在 -25° 到 +25° 之间逐格测距。 */
 #define OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG 25
 #define OPENCTR_AVOID_TRACK_PROBE_STEP_DEG 5

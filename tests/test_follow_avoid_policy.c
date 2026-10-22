@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 #include "ax_follow_avoid_policy.h"
+#include "openctr_avoid_config.h"
 
 static const AX_AVOID_Config config = {
     .front_stop_mm = 350,
@@ -273,8 +274,38 @@ static void test_scan_skips_center_that_cannot_release(void)
     assert(state.detour_angle_deg == -45);
 }
 
+static void test_project_400mm_clearance(void)
+{
+    AX_AVOID_Config tuned = config;
+    AX_AVOID_State state;
+    AX_AVOID_Input in = input();
+
+    tuned.front_release_mm = OPENCTR_AVOID_FRONT_RELEASE_MM;
+    tuned.side_min_mm = OPENCTR_AVOID_SIDE_MIN_MM;
+    in.range_distance_mm = 400;
+    AX_AVOID_Reset(&state);
+    AX_AVOID_Step(&state, &tuned, &in);
+    assert(state.phase == AX_AVOID_TRACK);
+    in.now_ms = 20;
+    in.range_distance_mm = 330;
+    ++in.range_sequence;
+    AX_AVOID_Step(&state, &tuned, &in);
+    assert(state.phase == AX_AVOID_SCAN_SIDE);
+    for (int16_t angle = 90; angle >= -90; angle -= 15) {
+        in.now_ms += 350;
+        in.range_angle_deg = angle;
+        in.range_distance_mm = angle == 45 ? 400 : 350;
+        in.range_triggered_ms = in.now_ms - 20;
+        ++in.range_sequence;
+        AX_AVOID_Step(&state, &tuned, &in);
+    }
+    assert(state.phase == AX_AVOID_TURN_OUT);
+    assert(state.detour_angle_deg == 45);
+}
+
 int main(void)
 {
+    test_project_400mm_clearance();
     AX_AVOID_State state;
     AX_AVOID_Input in = input();
     AX_AVOID_Output out;

@@ -65,17 +65,17 @@
 <text x="1150" y="687" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">停车，舵机回中</text>
 <text x="1150" y="713" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">新前方测距后重扫</text>
 <rect x="321.5" y="502" width="81" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="362" y="520" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">≥ 650</text>
+<text x="362" y="520" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">≥ 400</text>
 <rect x="577.5" y="502" width="199" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
 <text x="677" y="520" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">任一探测方向 ＜ 350</text>
 <rect x="930.5" y="502" width="123" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="992" y="520" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">侧向 ≥ 800</text>
+<text x="992" y="520" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">侧向 ≥ 400</text>
 <rect x="1236.0" y="502" width="142" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="1307" y="520" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">新方向 ≥ 650</text>
+<text x="1307" y="520" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">新方向 ≥ 400</text>
 <rect x="1552.5" y="502" width="139" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
 <text x="1622" y="520" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">前进 150 mm</text>
 <rect x="347.0" y="220" width="256" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="475" y="238" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">前方 ＜ 650，仍需接近目标</text>
+<text x="475" y="238" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">前方 ＜ 400，仍需接近目标</text>
 <rect x="882.0" y="175" width="216" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
 <text x="990" y="193" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">新方向受阻或转角过冲</text>
 <rect x="1141.0" y="130" width="218" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
@@ -89,9 +89,9 @@
 <rect x="384.0" y="640" width="102" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
 <text x="435" y="658" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">等待结束</text>
 <rect x="1213.5" y="788" width="313" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="1370" y="806" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">对准后，新测距 ＜ 650：重新绕行</text>
+<text x="1370" y="806" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#132238">对准后，新测距 ＜ 400：重新绕行</text>
 <rect x="986.0" y="898" width="408" height="36" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-<text x="1190" y="916" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#166534">对准后，两次不同新测距均 ≥ 650：恢复跟随</text>
+<text x="1190" y="916" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" font-weight="400" fill="#166534">对准后，两次不同新测距均 ≥ 400：恢复跟随</text>
 <text x="570" y="57" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="38" font-weight="700" fill="#132238">FOLLOW_AVOID 当前避障跟随流程</text>
 <text x="493" y="103" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="22" font-weight="400" fill="#475569">前方距离单位：mm  ·  箭头表示状态切换</text>
 <rect x="70" y="982" width="1845" height="102" rx="15" fill="#eef2f7" stroke="#cbd5e1" stroke-width="1"/>
