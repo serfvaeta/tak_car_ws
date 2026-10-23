@@ -36,6 +36,9 @@ static const AX_AVOID_Config avoid_config = {
     .side_min_mm = OPENCTR_AVOID_SIDE_MIN_MM,
     .scan_max_angle_deg = OPENCTR_AVOID_SCAN_MAX_ANGLE_DEG,
     .scan_step_deg = OPENCTR_AVOID_SCAN_STEP_DEG,
+    .fine_scan_radius_deg = OPENCTR_AVOID_FINE_SCAN_RADIUS_DEG,
+    .fine_scan_step_deg = OPENCTR_AVOID_FINE_SCAN_STEP_DEG,
+    .fine_distance_tie_mm = OPENCTR_AVOID_FINE_DISTANCE_TIE_MM,
     .track_probe_angle_deg = OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG,
     .track_probe_step_deg = OPENCTR_AVOID_TRACK_PROBE_STEP_DEG,
     .range_max_age_ms = OPENCTR_AVOID_RANGE_MAX_AGE_MS,
@@ -48,7 +51,9 @@ static const AX_AVOID_Config avoid_config = {
     .turn_settle_max_yaw_mrad_s =
         OPENCTR_AVOID_TURN_SETTLE_MAX_YAW_MRAD_S,
     .turn_overshoot_mrad = OPENCTR_AVOID_TURN_OVERSHOOT_MRAD,
-    .advance_segment_mm = OPENCTR_AVOID_ADVANCE_SEGMENT_MM,
+    .turn_outward_offset_deg = OPENCTR_AVOID_TURN_OUTWARD_OFFSET_DEG,
+    .advance_range_cap_mm = OPENCTR_AVOID_ADVANCE_RANGE_CAP_MM,
+    .advance_clearance_mm = OPENCTR_AVOID_ADVANCE_CLEARANCE_MM,
     .max_distance_mm = OPENCTR_AVOID_MAX_DISTANCE_MM,
     .max_time_ms = OPENCTR_AVOID_MAX_TIME_MS,
     .stall_timeout_ms = OPENCTR_AVOID_STALL_TIMEOUT_MS,
@@ -56,7 +61,8 @@ static const AX_AVOID_Config avoid_config = {
     .align_stop_turn_deg = OPENCTR_FOLLOW_START_TURN_DEG,
     .azimuth_to_yaw_sign = OPENCTR_AVOID_AZIMUTH_TO_YAW_SIGN,
     .rescan_wait_ms = OPENCTR_AVOID_RESCAN_WAIT_MS,
-    .side_scan_timeout_ms = OPENCTR_AVOID_SIDE_SCAN_TIMEOUT_MS
+    .coarse_scan_timeout_ms = OPENCTR_AVOID_COARSE_SCAN_TIMEOUT_MS,
+    .fine_scan_timeout_ms = OPENCTR_AVOID_FINE_SCAN_TIMEOUT_MS
 };
 
 void AX_FOLLOW_AVOID_Reset(void)

@@ -16,6 +16,14 @@ static uint8_t ConfigValid(const AX_AVOID_Config *config)
            config->side_min_mm > 0u && config->scan_max_angle_deg > 0 &&
            config->scan_max_angle_deg <= 90 &&
            config->scan_step_deg > 0 &&
+           config->fine_scan_radius_deg > 0 &&
+           config->fine_scan_radius_deg <= config->scan_max_angle_deg &&
+           config->fine_scan_step_deg > 0 &&
+           config->fine_scan_radius_deg % config->fine_scan_step_deg == 0 &&
+           config->scan_step_deg % config->fine_scan_step_deg == 0 &&
+           config->scan_max_angle_deg % config->fine_scan_step_deg == 0 &&
+           (2 * config->fine_scan_radius_deg /
+                config->fine_scan_step_deg + 1) <= AX_AVOID_SCAN_MAX_POINTS &&
            config->track_probe_angle_deg > 0 &&
            config->track_probe_angle_deg <= 90 &&
            config->track_probe_step_deg > 0 &&
@@ -30,10 +38,11 @@ static uint8_t ConfigValid(const AX_AVOID_Config *config)
            config->turn_settle_max_yaw_mrad_s <=
                (uint16_t)config->yaw_max_mrad_s &&
            config->turn_overshoot_mrad > 0u &&
-           config->advance_segment_mm > 0u &&
+           config->advance_clearance_mm > 0u &&
            config->stall_timeout_ms > 0u &&
            config->rescan_wait_ms > 0u &&
-           config->side_scan_timeout_ms > 0u &&
+           config->coarse_scan_timeout_ms > 0u &&
+           config->fine_scan_timeout_ms > 0u &&
            config->approach_stop_cm > 0u &&
            config->approach_start_cm > config->approach_stop_cm &&
            config->align_stop_turn_deg > 0u &&
@@ -110,10 +119,15 @@ static void ClearDetour(AX_AVOID_State *state)
     state->turn_front_ready_seen = 0;
     state->turn_settle_pending = 0;
     state->detour_angle_deg = 0;
+    state->coarse_candidate_angle_deg = 0;
+    state->fine_selected_angle_deg = 0;
     state->detour_side = 0;
     state->scan_index = 0;
+    state->scan_stage = AX_AVOID_SCAN_COARSE;
+    state->scan_center_angle_deg = 0;
     state->detour_start_ms = 0;
     state->segment_distance_mm = 0;
+    state->advance_target_mm = 0;
     state->total_distance_mm = 0;
     state->turn_progress_mrad = 0;
     state->turn_target_mrad = 0;
@@ -121,6 +135,101 @@ static void ClearDetour(AX_AVOID_State *state)
     state->turn_settle_sequence = 0;
     state->scan_valid_mask = 0;
     memset(state->scan_distance_mm, 0, sizeof(state->scan_distance_mm));
+}
+
+static uint8_t ScanPointCount(const AX_AVOID_State *state,
+                              const AX_AVOID_Config *config)
+{
+    if (state->scan_stage == AX_AVOID_SCAN_FINE) {
+        int16_t low = (int16_t)(state->scan_center_angle_deg -
+                                config->fine_scan_radius_deg);
+        int16_t high = (int16_t)(state->scan_center_angle_deg +
+                                 config->fine_scan_radius_deg);
+        if (low < -config->scan_max_angle_deg)
+            low = (int16_t)-config->scan_max_angle_deg;
+        if (high > config->scan_max_angle_deg)
+            high = config->scan_max_angle_deg;
+        return (uint8_t)((high - low) / config->fine_scan_step_deg + 1);
+    }
+    return (uint8_t)(2 * config->scan_max_angle_deg /
+                     config->scan_step_deg + 1);
+}
+
+static int16_t ScanAngleAt(const AX_AVOID_State *state,
+                           const AX_AVOID_Config *config, uint8_t index)
+{
+    if (state->scan_stage == AX_AVOID_SCAN_FINE) {
+        int16_t high = (int16_t)(state->scan_center_angle_deg +
+                                 config->fine_scan_radius_deg);
+        if (high > config->scan_max_angle_deg)
+            high = config->scan_max_angle_deg;
+        return (int16_t)(high - index * config->fine_scan_step_deg);
+    }
+    return (int16_t)(config->scan_max_angle_deg -
+                     index * config->scan_step_deg);
+}
+
+static int32_t AngleError(int16_t angle, int16_t azimuth)
+{
+    int32_t error = (int32_t)angle - azimuth;
+    return error < 0 ? -error : error;
+}
+
+static void EnterFineScan(AX_AVOID_State *state,
+                          const AX_AVOID_Config *config,
+                          const AX_AVOID_Input *input,
+                          int16_t center_angle)
+{
+    int16_t high;
+    state->scan_stage = AX_AVOID_SCAN_FINE;
+    state->scan_center_angle_deg = center_angle;
+    state->phase_start_ms = input->now_ms;
+    state->scan_index = 0;
+    state->scan_valid_mask = 0;
+    memset(state->scan_distance_mm, 0, sizeof(state->scan_distance_mm));
+    state->scan_wait_sequence = input->range_sequence;
+    high = (int16_t)(center_angle + config->fine_scan_radius_deg);
+    if (high > config->scan_max_angle_deg)
+        high = config->scan_max_angle_deg;
+    state->pan_angle_deg = high;
+}
+
+static void EnterTurnOut(AX_AVOID_State *state, const AX_AVOID_Input *input);
+
+static void EnterDetour(AX_AVOID_State *state,
+                        const AX_AVOID_Config *config,
+                        const AX_AVOID_Input *input,
+                        int16_t selected_angle, uint16_t selected_distance)
+{
+    uint16_t planning_distance_mm = selected_distance;
+
+    if (selected_angle == 0) {
+        ClearDetour(state);
+        EnterAlign(state, input);
+        return;
+    }
+    if (planning_distance_mm > config->advance_range_cap_mm)
+        planning_distance_mm = config->advance_range_cap_mm;
+    if (planning_distance_mm <= config->advance_clearance_mm) {
+        EnterRescanWait(state, input);
+        return;
+    }
+    state->fine_selected_angle_deg = selected_angle;
+    state->detour_angle_deg = selected_angle +
+        (selected_angle > 0 ? config->turn_outward_offset_deg :
+                              -config->turn_outward_offset_deg);
+    if (state->detour_angle_deg > config->scan_max_angle_deg)
+        state->detour_angle_deg = config->scan_max_angle_deg;
+    if (state->detour_angle_deg < -config->scan_max_angle_deg)
+        state->detour_angle_deg = (int16_t)-config->scan_max_angle_deg;
+    state->detour_side = state->detour_angle_deg < 0 ? -1 : 1;
+    state->advance_target_mm = (uint32_t)(planning_distance_mm -
+                                          config->advance_clearance_mm);
+    state->turn_target_mrad =
+        ((uint32_t)(state->detour_angle_deg < 0 ?
+                    -state->detour_angle_deg : state->detour_angle_deg) *
+         3142u + 90u) / 180u;
+    EnterTurnOut(state, input);
 }
 
 static void EnterRecovery(AX_AVOID_State *state,
@@ -142,8 +251,15 @@ static void EnterScan(AX_AVOID_State *state, const AX_AVOID_Config *config,
         state->total_distance_mm = 0;
     }
     state->phase = AX_AVOID_SCAN_SIDE;
+    state->scan_stage = AX_AVOID_SCAN_COARSE;
     state->phase_start_ms = input->now_ms;
     state->scan_index = 0;
+    state->coarse_candidate_angle_deg = 0;
+    state->fine_selected_angle_deg = 0;
+    state->detour_angle_deg = 0;
+    state->detour_side = 0;
+    state->advance_target_mm = 0;
+    state->scan_center_angle_deg = 0;
     state->scan_valid_mask = 0;
     memset(state->scan_distance_mm, 0, sizeof(state->scan_distance_mm));
     state->scan_wait_sequence = input->range_sequence;
@@ -180,30 +296,25 @@ static void EnterTurnOut(AX_AVOID_State *state, const AX_AVOID_Input *input)
     state->pan_angle_deg = 0;
 }
 
-static void SelectDirection(AX_AVOID_State *state,
-                            const AX_AVOID_Config *config,
-                            const AX_AVOID_Input *input)
+static void SelectCoarseDirection(AX_AVOID_State *state,
+                                  const AX_AVOID_Config *config,
+                                  const AX_AVOID_Input *input)
 {
-    uint8_t count = (uint8_t)(2 * config->scan_max_angle_deg /
-                              config->scan_step_deg + 1);
+    uint8_t count = ScanPointCount(state, config);
     uint8_t found = 0;
     uint16_t best_distance = 0;
     int16_t best_angle = 0;
     for (uint8_t i = 0; i < count; ++i) {
-        int16_t angle;
-        int16_t absolute_angle;
-        int16_t absolute_best;
+        int16_t angle = ScanAngleAt(state, config, i);
         if ((state->scan_valid_mask & (uint16_t)(1u << i)) == 0u) continue;
-        angle = (int16_t)(config->scan_max_angle_deg -
-                          i * config->scan_step_deg);
         /* Center cannot be used until it meets the forward release limit. */
         if (angle == 0 &&
             state->scan_distance_mm[i] < config->front_release_mm)
             continue;
-        absolute_angle = angle < 0 ? (int16_t)-angle : angle;
-        absolute_best = best_angle < 0 ? (int16_t)-best_angle : best_angle;
-        if (!found || absolute_angle < absolute_best ||
-            (absolute_angle == absolute_best &&
+        if (!found || AngleError(angle, input->aoa_azimuth_deg) <
+                          AngleError(best_angle, input->aoa_azimuth_deg) ||
+            (AngleError(angle, input->aoa_azimuth_deg) ==
+             AngleError(best_angle, input->aoa_azimuth_deg) &&
              state->scan_distance_mm[i] > best_distance)) {
             found = 1;
             best_distance = state->scan_distance_mm[i];
@@ -219,12 +330,60 @@ static void SelectDirection(AX_AVOID_State *state,
         EnterAlign(state, input);
         return;
     }
-    state->detour_angle_deg = best_angle;
-    state->detour_side = best_angle < 0 ? -1 : 1;
-    state->turn_target_mrad =
-        ((uint32_t)(best_angle < 0 ? -best_angle : best_angle) * 3142u + 90u)
-        / 180u;
-    EnterTurnOut(state, input);
+    state->coarse_candidate_angle_deg = best_angle;
+    EnterFineScan(state, config, input, best_angle);
+}
+
+static void SelectFineDirection(AX_AVOID_State *state,
+                                const AX_AVOID_Config *config,
+                                const AX_AVOID_Input *input)
+{
+    uint8_t count = ScanPointCount(state, config);
+    uint8_t found = 0;
+    uint8_t selected = 0;
+    uint16_t farthest_mm = 0;
+    int16_t best_angle = 0;
+    uint16_t best_distance = 0;
+
+    for (uint8_t i = 0; i < count; ++i) {
+        if ((state->scan_valid_mask & (uint16_t)(1u << i)) == 0u) continue;
+        if (!found || state->scan_distance_mm[i] > farthest_mm) {
+            found = 1;
+            farthest_mm = state->scan_distance_mm[i];
+        }
+    }
+    if (!found) {
+        EnterRescanWait(state, input);
+        return;
+    }
+
+    for (uint8_t i = 0; i < count; ++i) {
+        uint16_t distance;
+        int16_t angle;
+        if ((state->scan_valid_mask & (uint16_t)(1u << i)) == 0u) continue;
+        distance = state->scan_distance_mm[i];
+        if ((uint32_t)distance + config->fine_distance_tie_mm < farthest_mm)
+            continue;
+        angle = ScanAngleAt(state, config, i);
+        if (!selected || AngleError(angle, input->aoa_azimuth_deg) <
+                          AngleError(best_angle, input->aoa_azimuth_deg) ||
+            (AngleError(angle, input->aoa_azimuth_deg) ==
+             AngleError(best_angle, input->aoa_azimuth_deg) &&
+             distance > best_distance)) {
+            selected = 1;
+            best_angle = angle;
+            best_distance = distance;
+        }
+    }
+    if (!selected) {
+        EnterRescanWait(state, input);
+        return;
+    }
+    if (best_angle == 0 && best_distance < config->front_release_mm) {
+        EnterRescanWait(state, input);
+        return;
+    }
+    EnterDetour(state, config, input, best_angle, best_distance);
 }
 
 static AX_AVOID_Output StepTurnOut(AX_AVOID_State *state,
@@ -275,7 +434,8 @@ static AX_AVOID_Output StepTurnOut(AX_AVOID_State *state,
         if (input->range_sequence == state->turn_settle_sequence ||
             !TickAfter(input->range_triggered_ms, state->turn_settle_ms))
             return StopOutput(state);
-        if (input->range_distance_mm >= config->front_release_mm) {
+        if (input->range_distance_mm >= config->front_release_mm &&
+            state->advance_target_mm != 0u) {
             state->phase = AX_AVOID_ADVANCE;
             state->phase_start_ms = now_ms;
             state->segment_distance_mm = 0;
@@ -379,31 +539,38 @@ static AX_AVOID_Output StepScanSide(AX_AVOID_State *state,
                                     const AX_AVOID_Config *config,
                                     const AX_AVOID_Input *input)
 {
+    uint16_t timeout_ms = state->scan_stage == AX_AVOID_SCAN_FINE ?
+        config->fine_scan_timeout_ms : config->coarse_scan_timeout_ms;
     if ((uint32_t)(input->now_ms - state->phase_start_ms) >=
-        config->side_scan_timeout_ms) {
+        timeout_ms) {
         EnterRescanWait(state, input);
         return StopOutput(state);
     }
     if (input->range_valid &&
         input->range_sequence != state->scan_wait_sequence) {
-        int16_t expected_angle = (int16_t)(config->scan_max_angle_deg -
-                                  state->scan_index * config->scan_step_deg);
+        int16_t expected_angle = ScanAngleAt(state, config,
+                                             state->scan_index);
         if (input->range_angle_deg == expected_angle) {
-            uint8_t count = (uint8_t)(2 * config->scan_max_angle_deg /
-                                      config->scan_step_deg + 1);
+            uint8_t count = ScanPointCount(state, config);
             state->scan_distance_mm[state->scan_index] =
                 input->range_distance_mm;
             if (input->range_status == AX_XURSC_READY &&
-                input->range_distance_mm >= config->side_min_mm)
+                input->range_distance_mm >= config->side_min_mm &&
+                ((expected_angle == 0 && input->range_distance_mm >=
+                                          config->front_release_mm) ||
+                 (expected_angle != 0 && input->range_distance_mm >
+                                          config->advance_clearance_mm)))
                 state->scan_valid_mask |=
                     (uint16_t)(1u << state->scan_index);
             state->scan_wait_sequence = input->range_sequence;
             ++state->scan_index;
             if (state->scan_index < count)
-                state->pan_angle_deg = (int16_t)(expected_angle -
-                                                 config->scan_step_deg);
+                state->pan_angle_deg = ScanAngleAt(state, config,
+                                                   state->scan_index);
+            else if (state->scan_stage == AX_AVOID_SCAN_COARSE)
+                SelectCoarseDirection(state, config, input);
             else
-                SelectDirection(state, config, input);
+                SelectFineDirection(state, config, input);
         }
     }
     return StopOutput(state);
@@ -445,7 +612,7 @@ static AX_AVOID_Output StepAdvance(AX_AVOID_State *state,
         EnterRecovery(state, input, AX_AVOID_DIAG_ADVANCE_STALL);
         return StopOutput(state);
     }
-    if (state->segment_distance_mm >= config->advance_segment_mm) {
+    if (state->segment_distance_mm >= state->advance_target_mm) {
         ClearDetour(state);
         EnterAlign(state, input);
         return StopOutput(state);

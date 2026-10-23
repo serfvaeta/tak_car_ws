@@ -167,9 +167,11 @@ PS2 控制来源内有四个子模式：手动驾驶、自动跟随、避障跟�
 
 自动跟随只在 PS2 的 FOLLOW 子模式运行，控制规则在 `src/control/ax_follow_policy.c`。AOA 定位超过 300 ms 未更新即停车。跟随只使用报文中的方位角和距离，不使用仰角，也不对距离做水平投影。距离为 0 cm 或超过 600 cm 时停车；300～600 cm 的有效读数仍可用于跟随。先判断方位角：偏差达到 ±12° 时原地转向，回到 ±5° 内后再按距离控制前进与停车；较大角度不再因超过 ±60° 而直接停车。当前报文解析和跟随策略都没有前后判定；目标在车后时若仍收到有效角度与距离，也会进入跟随决策。
 
-FOLLOW_AVOID 每轮都先进入 `ALIGN_TARGET`：按 AOA 方位角原地转向，不在转向阶段避障。对准后进入 `FORWARD`，先等待转向后新触发的前向测距；前方达到 400 mm 才开始前进，同时让舵机在 ±25° 内每隔 5° 探测。任一探测方向小于 350 mm 时停车，进入侧扫。
+FOLLOW_AVOID 每轮都先进入 `ALIGN_TARGET`：按 AOA 方位角原地转向，不在转向阶段避障。对准后进入 `FORWARD`，先等待转向后新触发的前向测距；前方达到 400 mm 才开始前进，同时让舵机在 ±40° 内每隔 5° 探测。任一探测方向小于 350 mm 时停车，进入侧扫。避障跟随前进速度最高限制为 150 mm/s。
 
-侧扫从 +90° 到 -90° 每隔 15° 测一次，选距离至少 400 mm 且转角最小的方向。随后 `TURN_OUT` 转到该方向，确认前方达到 400 mm，再以不超过 100 mm/s 前进最多 150 mm。绕行结束回到 `ALIGN_TARGET`，开始下一轮。没有可走方向则停车等待 2 秒再试。
+避障选角分三层：先从 +90° 到 -90° 每隔 15° 粗扫，保留距离至少 400 mm 的方向，并选最接近当前 AOA 方位的粗选角；再以粗选角为中心，在舵机范围内左右最多 20°、每隔 5° 细扫。细扫先排除不符合安全距离的方向，再选测距较大的方向；与最远读数相差不超过 50 mm 时，选更接近 AOA 方位的方向。最后将细选角向外偏 16° 作为实际转向角。转向后仍需确认正前方达到 400 mm，才以不超过 100 mm/s 前进 `min(细选方向测距, 2000 mm) - 200 mm` 的距离。绕行结束回到 `ALIGN_TARGET`，开始下一轮；没有合格方向或扫描超时则停车等待 2 秒后重扫。
+
+粗扫和细扫分别计时，超时分别为 7 秒和 5 秒。两阶段均停车测距，舵机换角后等待 250 ms；细扫未完成或没有合格方向时丢弃本轮结果，从粗扫重新开始。
 
 AOA 距离达到 110 cm 才需要前进，缩短到 100 cm 后停止前进；即使目标已很近，仍先完成 AOA 转向。AOA 或测距失效时停车。流程图见 [FOLLOW_AVOID 控制循环](docs/diagrams/follow_avoid_flow.svg)。
 
@@ -179,12 +181,20 @@ AOA 距离达到 110 cm 才需要前进，缩短到 100 cm 后停止前进；即
 | --- | ---: | --- |
 | `OPENCTR_AVOID_FRONT_STOP_MM` | 350 | FORWARD 任一探测方向低于此值时停车并侧扫；调大可以更早避障。 |
 | `OPENCTR_AVOID_FRONT_RELEASE_MM` | 400 | 正前方达到此值才允许恢复前进；必须大于停车距离。 |
-| `OPENCTR_AVOID_SIDE_MIN_MM` | 400 | 侧扫读数达到此值才把该方向当作可绕行候选。 |
+| `OPENCTR_AVOID_SIDE_MIN_MM` | 400 | 侧扫读数达到此值才把该方向当作候选；非正前方方向还需大于前进余量，确保本段前进距离非零。 |
 | `OPENCTR_AVOID_PAN_SETTLE_MS` | 250 | 完整侧扫、回中及手动扫描的换角等待时间。 |
-| `OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG` | 25 | FORWARD 往返探测的两侧端点角度。 |
+| `OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG` | 40 | FORWARD 往返探测的两侧端点角度。 |
 | `OPENCTR_AVOID_TRACK_PROBE_STEP_DEG` | 5 | FORWARD 每次换角和测距的角度间隔。 |
 | `OPENCTR_AVOID_TRACK_PROBE_SETTLE_MS` | 60 | FORWARD 中每次 5° 换角的等待时间；需实车确认读数稳定。 |
 | `OPENCTR_AVOID_ULTRASONIC_INTERVAL_MS` | 100 | 两次超声波触发的最短间隔；底层还要求至少 60 ms。 |
+| `OPENCTR_AVOID_FINE_SCAN_RADIUS_DEG` | 20 | 细扫相对粗选角的最大范围，受舵机 ±90° 限制。 |
+| `OPENCTR_AVOID_FINE_SCAN_STEP_DEG` | 5 | 细扫角度间隔。 |
+| `OPENCTR_AVOID_FINE_DISTANCE_TIE_MM` | 50 | 细扫读数在最远距离此容差内时，优先比较 AOA 方位差。 |
+| `OPENCTR_AVOID_TURN_OUTWARD_OFFSET_DEG` | 16 | 第三层实际转向角相对细选角的向外偏转角；会限制在舵机 ±90° 范围内。 |
+| `OPENCTR_AVOID_ADVANCE_RANGE_CAP_MM` | 2000 | 计算单段前进距离时采用的最大细选测距值；超过时先按此值封顶。 |
+| `OPENCTR_AVOID_ADVANCE_CLEARANCE_MM` | 200 | 从封顶后的细选测距中减去的前进余量；例如 `2000 - 200 = 1800 mm`。 |
+| `OPENCTR_AVOID_COARSE_SCAN_TIMEOUT_MS` | 7000 | 粗扫阶段超时。 |
+| `OPENCTR_AVOID_FINE_SCAN_TIMEOUT_MS` | 5000 | 细扫阶段超时。 |
 | `OPENCTR_AVOID_RESCAN_WAIT_MS` | 2000 | 未找到合格方向时停车等待多久再试。 |
 
 这些是编译时参数，修改后要重新编译、烧录。测距年龄上限、扫描超时、转向和前进速度也在同一配置文件。距离阈值只决定何时触发和放行，实际反应还受测量周期、舵机换角时间及车速影响。

@@ -3,12 +3,15 @@
 
 #include "ax_follow_avoid_policy.h"
 
-static const AX_AVOID_Config config = {
+static AX_AVOID_Config config = {
     .front_stop_mm = 350,
     .front_release_mm = 650,
     .side_min_mm = 650,
     .scan_max_angle_deg = 90,
     .scan_step_deg = 15,
+    .fine_scan_radius_deg = 20,
+    .fine_scan_step_deg = 5,
+    .fine_distance_tie_mm = 50,
     .track_probe_angle_deg = 25,
     .track_probe_step_deg = 5,
     .range_max_age_ms = 250,
@@ -20,7 +23,9 @@ static const AX_AVOID_Config config = {
     .turn_timeout_ms = 5000,
     .turn_settle_max_yaw_mrad_s = 100,
     .turn_overshoot_mrad = 100,
-    .advance_segment_mm = 150,
+    .turn_outward_offset_deg = 0,
+    .advance_range_cap_mm = 2000,
+    .advance_clearance_mm = 400,
     .max_distance_mm = 1200,
     .max_time_ms = 25000,
     .stall_timeout_ms = 1000,
@@ -28,7 +33,8 @@ static const AX_AVOID_Config config = {
     .align_stop_turn_deg = 5,
     .azimuth_to_yaw_sign = 1,
     .rescan_wait_ms = 2000,
-    .side_scan_timeout_ms = 8000
+    .coarse_scan_timeout_ms = 7000,
+    .fine_scan_timeout_ms = 5000
 };
 
 static AX_AVOID_Input input(void)
@@ -78,6 +84,27 @@ static AX_AVOID_Output sample(AX_AVOID_State *state, AX_AVOID_Input *in,
     return AX_AVOID_Step(state, &config, in);
 }
 
+static AX_AVOID_Output finish_fine_scan(AX_AVOID_State *state,
+                                        AX_AVOID_Input *in,
+                                        int16_t open_angle_1,
+                                        uint16_t distance_1,
+                                        int16_t open_angle_2,
+                                        uint16_t distance_2)
+{
+    int16_t low = (int16_t)(state->scan_center_angle_deg - 20);
+    int16_t high = (int16_t)(state->scan_center_angle_deg + 20);
+    if (low < -90) low = -90;
+    if (high > 90) high = 90;
+    assert(state->scan_stage == AX_AVOID_SCAN_FINE);
+    for (int16_t angle = high; angle >= low; angle -= 5) {
+        uint16_t distance = 350;
+        if (angle == open_angle_1) distance = distance_1;
+        if (angle == open_angle_2) distance = distance_2;
+        sample(state, in, angle, distance, AX_XURSC_READY);
+    }
+    return AX_AVOID_Step(state, &config, in);
+}
+
 int main(void)
 {
     AX_AVOID_State state;
@@ -96,8 +123,7 @@ int main(void)
     for (angle = 90; angle >= -90; angle -= 15) {
         uint16_t distance = 350;
         if (angle == 45) distance = 550;
-        if (angle == -60) distance = 850;
-        if (angle == -75) distance = 1200;
+        if (angle == -60 || angle == -75) distance = 850;
         out = sample(&state, &in, angle, distance, AX_XURSC_READY);
         if (angle > -90) {
             assert(state.phase == AX_AVOID_SCAN_SIDE);
@@ -105,9 +131,11 @@ int main(void)
             assert(out.forward_mm_s == 0 && out.yaw_mrad_s == 0);
         }
     }
-    assert(state.scan_distance_mm[3] == 550); /* +45 degrees */
-    assert(state.scan_distance_mm[10] == 850); /* -60 degrees */
+    assert(state.scan_stage == AX_AVOID_SCAN_FINE);
+    assert(state.coarse_candidate_angle_deg == -60);
+    out = finish_fine_scan(&state, &in, -60, 850, -75, 850);
     assert(state.phase == AX_AVOID_TURN_OUT);
+    assert(state.fine_selected_angle_deg == -60);
     assert(state.detour_angle_deg == -60);
     assert(state.detour_side == -1);
     assert(state.turn_target_mrad >= 1046 && state.turn_target_mrad <= 1048);
@@ -189,9 +217,10 @@ int main(void)
     assert(state.phase == AX_AVOID_ADVANCE);
     assert(out.forward_mm_s == 100 && out.yaw_mrad_s == 0);
 
-    /* Prefer the smaller turn, then the farther of equal-angle choices. */
+    /* Prefer the route nearest the tracked beacon, then the farther route. */
     in = input();
     start_scan(&state, &in);
+    in.aoa_azimuth_deg = 40;
     for (angle = 90; angle >= -90; angle -= 15) {
         uint16_t distance = 350;
         if (angle == 45) distance = 1000;
@@ -199,8 +228,10 @@ int main(void)
         if (angle == -15) distance = 650;
         sample(&state, &in, angle, distance, AX_XURSC_READY);
     }
+    out = finish_fine_scan(&state, &in, 45, 1000, 0, 0);
     assert(state.phase == AX_AVOID_TURN_OUT);
-    assert(state.detour_angle_deg == 15);
+    assert(state.fine_selected_angle_deg == 45);
+    assert(state.detour_angle_deg == 45);
     in.range_angle_deg = 0;
     in.range_distance_mm = 330;
     in.yaw_rate_mrad_s = -500;
@@ -212,13 +243,13 @@ int main(void)
     }
     assert(state.turn_progress_mrad == -300);
     in.yaw_rate_mrad_s = 500;
-    for (unsigned n = 0; n < 11; ++n) {
+    for (unsigned n = 0; n < 22; ++n) {
         in.now_ms += 100;
         in.range_triggered_ms = in.now_ms - 20;
         ++in.range_sequence;
         out = AX_AVOID_Step(&state, &config, &in);
     }
-    assert(state.turn_progress_mrad == 250);
+    assert(state.turn_progress_mrad == 800);
     assert(state.phase == AX_AVOID_TURN_OUT);
     in.now_ms += 100;
     in.range_triggered_ms = in.now_ms - 20;
@@ -265,5 +296,18 @@ int main(void)
     out = AX_AVOID_Step(&state, &config, &in);
     assert(state.phase == AX_AVOID_RESCAN_WAIT);
     assert(out.forward_mm_s == 0 && out.yaw_mrad_s == 0);
+
+    config.turn_outward_offset_deg = 10;
+    in = input();
+    start_scan(&state, &in);
+    in.aoa_azimuth_deg = 20;
+    for (angle = 90; angle >= -90; angle -= 15) {
+        uint16_t distance = angle == 30 ? 800 : 350;
+        sample(&state, &in, angle, distance, AX_XURSC_READY);
+    }
+    out = finish_fine_scan(&state, &in, 30, 800, 0, 0);
+    assert(state.phase == AX_AVOID_TURN_OUT);
+    assert(state.fine_selected_angle_deg == 30);
+    assert(state.detour_angle_deg == 40);
     return 0;
 }

@@ -8,6 +8,11 @@
 #define AX_AVOID_SCAN_MAX_POINTS 13
 
 typedef enum {
+    AX_AVOID_SCAN_COARSE = 0,
+    AX_AVOID_SCAN_FINE
+} AX_AVOID_ScanStage;
+
+typedef enum {
     AX_AVOID_ALIGN_TARGET = 0,
     AX_AVOID_FORWARD,
     AX_AVOID_SCAN_SIDE,
@@ -48,6 +53,9 @@ typedef struct {
     uint16_t side_min_mm;
     int16_t scan_max_angle_deg;
     int16_t scan_step_deg;
+    int16_t fine_scan_radius_deg;
+    int16_t fine_scan_step_deg;
+    uint16_t fine_distance_tie_mm;
     int16_t track_probe_angle_deg;
     int16_t track_probe_step_deg;
     uint16_t range_max_age_ms;
@@ -59,7 +67,9 @@ typedef struct {
     uint16_t turn_timeout_ms;
     uint16_t turn_settle_max_yaw_mrad_s;
     uint16_t turn_overshoot_mrad;
-    uint16_t advance_segment_mm;
+    uint8_t turn_outward_offset_deg;
+    uint16_t advance_range_cap_mm;
+    uint16_t advance_clearance_mm;
     /* Zero disables the cumulative limit; per-action limits still apply. */
     uint16_t max_distance_mm;
     uint32_t max_time_ms;
@@ -68,7 +78,8 @@ typedef struct {
     uint8_t align_stop_turn_deg;
     int8_t azimuth_to_yaw_sign;
     uint16_t rescan_wait_ms;
-    uint16_t side_scan_timeout_ms;
+    uint16_t coarse_scan_timeout_ms;
+    uint16_t fine_scan_timeout_ms;
 } AX_AVOID_Config;
 
 typedef struct {
@@ -97,9 +108,13 @@ typedef struct {
     AX_AVOID_Phase phase;
     AX_AVOID_DiagReason hold_reason;
     int16_t pan_angle_deg;
+    int16_t coarse_candidate_angle_deg;
+    int16_t fine_selected_angle_deg;
     int16_t detour_angle_deg;
     int8_t detour_side;
     uint8_t scan_index;
+    AX_AVOID_ScanStage scan_stage;
+    int16_t scan_center_angle_deg;
     uint8_t detour_active;
     uint8_t approach_needed;
     uint8_t turn_front_ready_seen;
@@ -115,6 +130,7 @@ typedef struct {
     uint32_t phase_start_ms;
     uint32_t detour_start_ms;
     uint32_t segment_distance_mm;
+    uint32_t advance_target_mm;
     uint32_t total_distance_mm;
     int32_t turn_progress_mrad;
     int32_t turn_target_mrad;

@@ -5,16 +5,19 @@
 static const AX_AVOID_Config config = {
     .front_stop_mm = 350, .front_release_mm = 400, .side_min_mm = 400,
     .scan_max_angle_deg = 90, .scan_step_deg = 15,
+    .fine_scan_radius_deg = 20, .fine_scan_step_deg = 5,
+    .fine_distance_tie_mm = 50,
     .track_probe_angle_deg = 25, .track_probe_step_deg = 5,
     .range_max_age_ms = 250, .approach_start_cm = 110,
     .approach_stop_cm = 100, .follow_max_mm_s = 300,
     .advance_max_mm_s = 100, .yaw_max_mrad_s = 500,
     .turn_timeout_ms = 5000, .turn_settle_max_yaw_mrad_s = 100,
-    .turn_overshoot_mrad = 100, .advance_segment_mm = 150,
+    .turn_overshoot_mrad = 100, .advance_range_cap_mm = 2000,
+    .advance_clearance_mm = 200,
     .stall_timeout_ms = 1000, .stall_min_mm = 20,
     .align_stop_turn_deg = 12,
     .azimuth_to_yaw_sign = 1, .rescan_wait_ms = 2000,
-    .side_scan_timeout_ms = 8000
+    .coarse_scan_timeout_ms = 7000, .fine_scan_timeout_ms = 5000
 };
 
 static AX_AVOID_Input input(void)
@@ -70,7 +73,12 @@ int main(void)
     assert(out.forward_mm_s == 0 && out.pan_angle_deg == 90);
 
     for (int16_t angle = 90; angle >= -90; angle -= 15)
-        out = echo(&state, &in, angle, angle == 45 ? 400 : 350, 350);
+        out = echo(&state, &in, angle, angle == 45 ? 3000 : 350, 350);
+    assert(state.phase == AX_AVOID_SCAN_SIDE);
+    assert(state.scan_stage == AX_AVOID_SCAN_FINE);
+    for (int16_t angle = 65; angle >= 25; angle -= 5)
+        out = echo(&state, &in, angle,
+                   angle == 45 || angle == 50 ? 3000 : 350, 350);
     assert(state.phase == AX_AVOID_TURN_OUT);
     assert(state.detour_angle_deg == 45);
     assert(out.forward_mm_s == 0);
@@ -84,9 +92,10 @@ int main(void)
     assert(state.phase == AX_AVOID_TURN_OUT && out.forward_mm_s == 0);
     out = echo(&state, &in, 0, 400, 100);
     assert(state.phase == AX_AVOID_ADVANCE && out.forward_mm_s == 100);
+    assert(state.advance_target_mm == 1800);
 
     in.forward_mm_s = 100;
-    for (unsigned i = 0; i < 15; ++i)
+    for (unsigned i = 0; i < 180; ++i)
         out = echo(&state, &in, 0, 400, 100);
     assert(state.phase == AX_AVOID_ALIGN_TARGET);
     assert(out.forward_mm_s == 0);

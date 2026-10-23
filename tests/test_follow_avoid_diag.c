@@ -7,16 +7,19 @@ int main(void)
     const AX_AVOID_Config config = {
         .front_stop_mm = 350, .front_release_mm = 400, .side_min_mm = 400,
         .scan_max_angle_deg = 90, .scan_step_deg = 15,
+        .fine_scan_radius_deg = 20, .fine_scan_step_deg = 5,
+        .fine_distance_tie_mm = 50,
         .track_probe_angle_deg = 25, .track_probe_step_deg = 5,
         .range_max_age_ms = 250, .approach_start_cm = 110,
         .approach_stop_cm = 100, .follow_max_mm_s = 300,
         .advance_max_mm_s = 100, .yaw_max_mrad_s = 500,
         .turn_timeout_ms = 5000, .turn_settle_max_yaw_mrad_s = 100,
-        .turn_overshoot_mrad = 100, .advance_segment_mm = 150,
+        .turn_overshoot_mrad = 100, .advance_range_cap_mm = 2000,
+        .advance_clearance_mm = 400,
         .stall_timeout_ms = 1000, .stall_min_mm = 20,
         .align_stop_turn_deg = 12,
         .azimuth_to_yaw_sign = 1, .rescan_wait_ms = 2000,
-        .side_scan_timeout_ms = 8000
+        .coarse_scan_timeout_ms = 7000, .fine_scan_timeout_ms = 5000
     };
     AX_AVOID_State state;
     AX_AVOID_Input input = {0};

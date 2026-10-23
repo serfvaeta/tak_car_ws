@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 OUT = Path(__file__).resolve().parent
 FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
-WIDTH, HEIGHT = 1200, 650
+WIDTH, HEIGHT = 1000, 1030
 image = Image.new("RGB", (WIDTH, HEIGHT), "#f8fafc")
 draw = ImageDraw.Draw(image)
 svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}">',
@@ -51,27 +51,34 @@ def arrow(points):
                '" fill="#475569"/>')
 
 
-text(600, 45, "FOLLOW_AVOID 控制循环", 36)
-card(70, 140, "ALIGN_TARGET", "每轮先按 AOA 转向", "#e0e7ff")
-card(460, 140, "FORWARD", "前进并持续测距", "#dcfce7")
-card(850, 140, "SCAN_SIDE", "遇障停车，选可走方向", "#e0f2fe")
-card(850, 400, "TURN_OUT", "向可走方向转向", "#fef3c7")
-card(460, 400, "ADVANCE", "低速绕行 150 mm", "#fef3c7")
+text(500, 45, "FOLLOW_AVOID 三层选角与绕行", 34)
+card(350, 100, "ALIGN_TARGET", "按 AOA 对准目标", "#e0e7ff")
+card(350, 235, "FORWARD", "跟随并持续探测", "#dcfce7")
+card(350, 370, "粗选角", "+90° 到 -90°，每 15°", "#e0f2fe")
+card(350, 505, "细选角", "粗选角 ±20°，每 5°", "#dbeafe")
+card(350, 640, "实际转向角", "细选角向外偏 16°", "#fef3c7")
+card(350, 775, "ADVANCE", "min(细选测距, 2000) - 200 mm", "#fef3c7")
+card(40, 505, "RESCAN_WAIT", "停车 2 秒后重新粗扫", "#fee2e2")
 
-arrow([(350, 200), (460, 200)])
-arrow([(740, 200), (850, 200)])
-arrow([(990, 260), (990, 400)])
-arrow([(850, 460), (740, 460)])
-arrow([(460, 460), (210, 460), (210, 260)])
-arrow([(600, 140), (600, 105), (210, 105), (210, 140)])
+arrow([(490, 220), (490, 235)])
+arrow([(490, 355), (490, 370)])
+arrow([(490, 490), (490, 505)])
+arrow([(490, 625), (490, 640)])
+arrow([(490, 760), (490, 775)])
+arrow([(490, 895), (900, 895), (900, 75), (490, 75), (490, 100)])
+arrow([(350, 430), (300, 430), (300, 565), (320, 565)])
+arrow([(350, 565), (320, 565)])
+arrow([(350, 700), (300, 700), (300, 565), (320, 565)])
+arrow([(320, 565), (280, 565), (280, 430), (350, 430)])
 
-text(405, 175, "对准后")
-text(795, 175, "发现障碍")
-text(1020, 330, "选路")
-text(795, 435, "前方通畅")
-text(330, 488, "绕行结束，再转向")
-text(430, 85, "方向偏了，重新转向")
-text(600, 590, "转向阶段不避障；进入前进阶段后，先确认新的前向测距再行驶。", 20)
+text(770, 225, "对准后")
+text(770, 360, "发现障碍")
+text(770, 495, "找到粗选角")
+text(790, 630, "按距离与 AOA 细选")
+text(790, 765, "正前方测距放行")
+text(760, 925, "绕行结束，重新对准")
+text(180, 650, "无合格路 / 超时 / 转向受阻", 17)
+text(500, 970, "粗扫超时 7 秒；细扫超时 5 秒；扫描期间底盘停车。", 19)
 
 svg.append("</svg>")
 (OUT / "follow_avoid_flow.svg").write_text("\n".join(svg), encoding="utf-8")
