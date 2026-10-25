@@ -11,7 +11,6 @@ static AX_AVOID_Config config = {
     .scan_step_deg = 15,
     .fine_scan_radius_deg = 20,
     .fine_scan_step_deg = 5,
-    .fine_distance_tie_mm = 50,
     .track_probe_angle_deg = 25,
     .track_probe_step_deg = 5,
     .range_max_age_ms = 250,
@@ -23,7 +22,6 @@ static AX_AVOID_Config config = {
     .turn_timeout_ms = 5000,
     .turn_settle_max_yaw_mrad_s = 100,
     .turn_overshoot_mrad = 100,
-    .turn_outward_offset_deg = 0,
     .advance_range_cap_mm = 2000,
     .advance_clearance_mm = 400,
     .max_distance_mm = 1200,
@@ -105,6 +103,23 @@ static AX_AVOID_Output finish_fine_scan(AX_AVOID_State *state,
     return AX_AVOID_Step(state, &config, in);
 }
 
+static AX_AVOID_Output finish_fine_corridor(AX_AVOID_State *state,
+                                            AX_AVOID_Input *in,
+                                            int16_t low_open,
+                                            int16_t high_open,
+                                            uint16_t distance)
+{
+    int16_t low = (int16_t)(state->scan_center_angle_deg - 20);
+    int16_t high = (int16_t)(state->scan_center_angle_deg + 20);
+    if (low < -90) low = -90;
+    if (high > 90) high = 90;
+    for (int16_t angle = high; angle >= low; angle -= 5)
+        sample(state, in, angle,
+               angle >= low_open && angle <= high_open ? distance : 350,
+               AX_XURSC_READY);
+    return AX_AVOID_Step(state, &config, in);
+}
+
 int main(void)
 {
     AX_AVOID_State state;
@@ -113,17 +128,19 @@ int main(void)
     int16_t angle;
 
     start_scan(&state, &in);
+    in.aoa_azimuth_deg = -60;
     /* An old sample or one from the previous angle cannot advance scan. */
     in.now_ms += 20;
     in.range_angle_deg = 0;
     out = AX_AVOID_Step(&state, &config, &in);
     assert(state.scan_index == 0 && out.pan_angle_deg == 90);
 
-    /* All 13 points are visited; a reading below 650 mm is excluded. */
+    /* All 13 points are visited; the coarse sector around -60 is open. */
     for (angle = 90; angle >= -90; angle -= 15) {
         uint16_t distance = 350;
         if (angle == 45) distance = 550;
-        if (angle == -60 || angle == -75) distance = 850;
+        if (angle == -30 || angle == -45 || angle == -60 ||
+            angle == -75 || angle == -90) distance = 850;
         out = sample(&state, &in, angle, distance, AX_XURSC_READY);
         if (angle > -90) {
             assert(state.phase == AX_AVOID_SCAN_SIDE);
@@ -133,7 +150,7 @@ int main(void)
     }
     assert(state.scan_stage == AX_AVOID_SCAN_FINE);
     assert(state.coarse_candidate_angle_deg == -60);
-    out = finish_fine_scan(&state, &in, -60, 850, -75, 850);
+    out = finish_fine_corridor(&state, &in, -80, -40, 850);
     assert(state.phase == AX_AVOID_TURN_OUT);
     assert(state.fine_selected_angle_deg == -60);
     assert(state.detour_angle_deg == -60);
@@ -224,11 +241,12 @@ int main(void)
     for (angle = 90; angle >= -90; angle -= 15) {
         uint16_t distance = 350;
         if (angle == 45) distance = 1000;
+        if (angle == 30 || angle == 60 || angle == 75) distance = 700;
         if (angle == 15) distance = 700;
         if (angle == -15) distance = 650;
         sample(&state, &in, angle, distance, AX_XURSC_READY);
     }
-    out = finish_fine_scan(&state, &in, 45, 1000, 0, 0);
+    out = finish_fine_corridor(&state, &in, 25, 65, 1000);
     assert(state.phase == AX_AVOID_TURN_OUT);
     assert(state.fine_selected_angle_deg == 45);
     assert(state.detour_angle_deg == 45);
@@ -297,17 +315,85 @@ int main(void)
     assert(state.phase == AX_AVOID_RESCAN_WAIT);
     assert(out.forward_mm_s == 0 && out.yaw_mrad_s == 0);
 
-    config.turn_outward_offset_deg = 10;
     in = input();
     start_scan(&state, &in);
     in.aoa_azimuth_deg = 20;
     for (angle = 90; angle >= -90; angle -= 15) {
-        uint16_t distance = angle == 30 ? 800 : 350;
+        uint16_t distance = angle == 0 || angle == 15 || angle == 30 ||
+                            angle == 45 || angle == 60 ?
+                            800 : 350;
         sample(&state, &in, angle, distance, AX_XURSC_READY);
     }
-    out = finish_fine_scan(&state, &in, 30, 800, 0, 0);
+    out = finish_fine_corridor(&state, &in, 10, 50, 800);
     assert(state.phase == AX_AVOID_TURN_OUT);
     assert(state.fine_selected_angle_deg == 30);
-    assert(state.detour_angle_deg == 40);
+    assert(state.detour_angle_deg == 30);
+
+    /* A single long echo is not a passable angular corridor. */
+    in = input();
+    start_scan(&state, &in);
+    in.aoa_azimuth_deg = 45;
+    for (angle = 90; angle >= -90; angle -= 15)
+        sample(&state, &in, angle,
+               angle == 45 ? 900 : 350, AX_XURSC_READY);
+    if (state.scan_stage == AX_AVOID_SCAN_FINE)
+        finish_fine_scan(&state, &in, 45, 900, 0, 0);
+    assert(state.phase == AX_AVOID_RESCAN_WAIT);
+
+    /* If the nearer coarse sector fails fine verification, try another. */
+    in = input();
+    start_scan(&state, &in);
+    in.aoa_azimuth_deg = 45;
+    for (angle = 90; angle >= -90; angle -= 15) {
+        uint16_t mm = (angle >= 15 && angle <= 75) ||
+                      (angle <= -15 && angle >= -75) ? 900 : 350;
+        sample(&state, &in, angle, mm, AX_XURSC_READY);
+    }
+    assert(state.scan_center_angle_deg == 45);
+    finish_fine_scan(&state, &in, 45, 900, 0, 0);
+    assert(state.phase == AX_AVOID_SCAN_SIDE);
+    assert(state.scan_stage == AX_AVOID_SCAN_FINE);
+    assert(state.scan_center_angle_deg == -45);
+    finish_fine_corridor(&state, &in, -65, -25, 900);
+    assert(state.phase == AX_AVOID_TURN_OUT);
+    assert(state.detour_angle_deg == -45);
+
+    /* With 10-degree coarse steps, the same +/-20-degree sector uses
+     * five coarse samples; a missing outer sample must reject it. */
+    config.scan_step_deg = 10;
+    in = input();
+    start_scan(&state, &in);
+    in.aoa_azimuth_deg = 30;
+    for (angle = 90; angle >= -90; angle -= 10)
+        sample(&state, &in, angle,
+               angle >= 20 && angle <= 40 ? 900 : 350,
+               AX_XURSC_READY);
+    assert(state.phase == AX_AVOID_RESCAN_WAIT);
+    in = input();
+    start_scan(&state, &in);
+    in.aoa_azimuth_deg = 30;
+    for (angle = 90; angle >= -90; angle -= 10)
+        sample(&state, &in, angle,
+               angle >= 10 && angle <= 50 ? 900 : 350,
+               AX_XURSC_READY);
+    assert(state.phase == AX_AVOID_SCAN_SIDE);
+    assert(state.scan_center_angle_deg == 30);
+    finish_fine_corridor(&state, &in, 10, 50, 900);
+    assert(state.phase == AX_AVOID_TURN_OUT);
+    assert(state.detour_angle_deg == 30);
+
+    /* The narrowest confirmed point limits the planned forward distance. */
+    in = input();
+    start_scan(&state, &in);
+    in.aoa_azimuth_deg = 30;
+    for (angle = 90; angle >= -90; angle -= 10)
+        sample(&state, &in, angle,
+               angle >= 10 && angle <= 50 ? 900 : 350,
+               AX_XURSC_READY);
+    for (angle = 50; angle >= 10; angle -= 5)
+        sample(&state, &in, angle,
+               angle == 20 ? 700 : 900, AX_XURSC_READY);
+    assert(state.phase == AX_AVOID_TURN_OUT);
+    assert(state.advance_target_mm == 300);
     return 0;
 }

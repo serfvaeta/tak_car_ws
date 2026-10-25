@@ -135,6 +135,9 @@ static void ClearDetour(AX_AVOID_State *state)
     state->turn_settle_sequence = 0;
     state->scan_valid_mask = 0;
     memset(state->scan_distance_mm, 0, sizeof(state->scan_distance_mm));
+    state->coarse_valid_mask = 0;
+    state->coarse_attempted_mask = 0;
+    memset(state->coarse_distance_mm, 0, sizeof(state->coarse_distance_mm));
 }
 
 static uint8_t ScanPointCount(const AX_AVOID_State *state,
@@ -215,13 +218,7 @@ static void EnterDetour(AX_AVOID_State *state,
         return;
     }
     state->fine_selected_angle_deg = selected_angle;
-    state->detour_angle_deg = selected_angle +
-        (selected_angle > 0 ? config->turn_outward_offset_deg :
-                              -config->turn_outward_offset_deg);
-    if (state->detour_angle_deg > config->scan_max_angle_deg)
-        state->detour_angle_deg = config->scan_max_angle_deg;
-    if (state->detour_angle_deg < -config->scan_max_angle_deg)
-        state->detour_angle_deg = (int16_t)-config->scan_max_angle_deg;
+    state->detour_angle_deg = selected_angle;
     state->detour_side = state->detour_angle_deg < 0 ? -1 : 1;
     state->advance_target_mm = (uint32_t)(planning_distance_mm -
                                           config->advance_clearance_mm);
@@ -262,6 +259,9 @@ static void EnterScan(AX_AVOID_State *state, const AX_AVOID_Config *config,
     state->scan_center_angle_deg = 0;
     state->scan_valid_mask = 0;
     memset(state->scan_distance_mm, 0, sizeof(state->scan_distance_mm));
+    state->coarse_valid_mask = 0;
+    state->coarse_attempted_mask = 0;
+    memset(state->coarse_distance_mm, 0, sizeof(state->coarse_distance_mm));
     state->scan_wait_sequence = input->range_sequence;
     state->pan_angle_deg = config->scan_max_angle_deg;
 }
@@ -300,36 +300,49 @@ static void SelectCoarseDirection(AX_AVOID_State *state,
                                   const AX_AVOID_Config *config,
                                   const AX_AVOID_Input *input)
 {
-    uint8_t count = ScanPointCount(state, config);
+    uint8_t count = (uint8_t)(2 * config->scan_max_angle_deg /
+                              config->scan_step_deg + 1);
     uint8_t found = 0;
-    uint16_t best_distance = 0;
+    uint16_t best_clearance = 0;
     int16_t best_angle = 0;
-    for (uint8_t i = 0; i < count; ++i) {
-        int16_t angle = ScanAngleAt(state, config, i);
-        if ((state->scan_valid_mask & (uint16_t)(1u << i)) == 0u) continue;
-        /* Center cannot be used until it meets the forward release limit. */
-        if (angle == 0 &&
-            state->scan_distance_mm[i] < config->front_release_mm)
+    uint8_t best_index = 0;
+    uint8_t radius_steps = (uint8_t)((config->fine_scan_radius_deg +
+                                      config->scan_step_deg - 1) /
+                                     config->scan_step_deg);
+    for (uint8_t i = radius_steps; i + radius_steps < count; ++i) {
+        int16_t angle = (int16_t)(config->scan_max_angle_deg -
+                                  i * config->scan_step_deg);
+        uint16_t clearance = UINT16_MAX;
+        uint32_t required_mask =
+            (((uint32_t)1u << (2u * radius_steps + 1u)) - 1u) <<
+            (i - radius_steps);
+        if ((state->coarse_valid_mask & required_mask) != required_mask ||
+            (state->coarse_attempted_mask & ((uint32_t)1u << i)) != 0u ||
+            angle - config->fine_scan_radius_deg <
+                -config->scan_max_angle_deg ||
+            angle + config->fine_scan_radius_deg >
+                config->scan_max_angle_deg)
             continue;
+        for (uint8_t j = (uint8_t)(i - radius_steps);
+             j <= i + radius_steps; ++j)
+            if (state->coarse_distance_mm[j] < clearance)
+                clearance = state->coarse_distance_mm[j];
         if (!found || AngleError(angle, input->aoa_azimuth_deg) <
                           AngleError(best_angle, input->aoa_azimuth_deg) ||
             (AngleError(angle, input->aoa_azimuth_deg) ==
              AngleError(best_angle, input->aoa_azimuth_deg) &&
-             state->scan_distance_mm[i] > best_distance)) {
+             clearance > best_clearance)) {
             found = 1;
-            best_distance = state->scan_distance_mm[i];
+            best_clearance = clearance;
             best_angle = angle;
+            best_index = i;
         }
     }
     if (!found) {
         EnterRescanWait(state, input);
         return;
     }
-    if (best_angle == 0) {
-        ClearDetour(state);
-        EnterAlign(state, input);
-        return;
-    }
+    state->coarse_attempted_mask |= (uint32_t)1u << best_index;
     state->coarse_candidate_angle_deg = best_angle;
     EnterFineScan(state, config, input, best_angle);
 }
@@ -339,51 +352,18 @@ static void SelectFineDirection(AX_AVOID_State *state,
                                 const AX_AVOID_Input *input)
 {
     uint8_t count = ScanPointCount(state, config);
-    uint8_t found = 0;
-    uint8_t selected = 0;
-    uint16_t farthest_mm = 0;
-    int16_t best_angle = 0;
-    uint16_t best_distance = 0;
-
+    uint16_t clearance = UINT16_MAX;
+    /* The entire measured +/- radius must be clear around the turn angle. */
     for (uint8_t i = 0; i < count; ++i) {
-        if ((state->scan_valid_mask & (uint16_t)(1u << i)) == 0u) continue;
-        if (!found || state->scan_distance_mm[i] > farthest_mm) {
-            found = 1;
-            farthest_mm = state->scan_distance_mm[i];
+        if ((state->scan_valid_mask & ((uint32_t)1u << i)) == 0u) {
+            SelectCoarseDirection(state, config, input);
+            return;
         }
+        if (state->scan_distance_mm[i] < clearance)
+            clearance = state->scan_distance_mm[i];
     }
-    if (!found) {
-        EnterRescanWait(state, input);
-        return;
-    }
-
-    for (uint8_t i = 0; i < count; ++i) {
-        uint16_t distance;
-        int16_t angle;
-        if ((state->scan_valid_mask & (uint16_t)(1u << i)) == 0u) continue;
-        distance = state->scan_distance_mm[i];
-        if ((uint32_t)distance + config->fine_distance_tie_mm < farthest_mm)
-            continue;
-        angle = ScanAngleAt(state, config, i);
-        if (!selected || AngleError(angle, input->aoa_azimuth_deg) <
-                          AngleError(best_angle, input->aoa_azimuth_deg) ||
-            (AngleError(angle, input->aoa_azimuth_deg) ==
-             AngleError(best_angle, input->aoa_azimuth_deg) &&
-             distance > best_distance)) {
-            selected = 1;
-            best_angle = angle;
-            best_distance = distance;
-        }
-    }
-    if (!selected) {
-        EnterRescanWait(state, input);
-        return;
-    }
-    if (best_angle == 0 && best_distance < config->front_release_mm) {
-        EnterRescanWait(state, input);
-        return;
-    }
-    EnterDetour(state, config, input, best_angle, best_distance);
+    EnterDetour(state, config, input, state->scan_center_angle_deg,
+                clearance);
 }
 
 static AX_AVOID_Output StepTurnOut(AX_AVOID_State *state,
@@ -561,15 +541,18 @@ static AX_AVOID_Output StepScanSide(AX_AVOID_State *state,
                  (expected_angle != 0 && input->range_distance_mm >
                                           config->advance_clearance_mm)))
                 state->scan_valid_mask |=
-                    (uint16_t)(1u << state->scan_index);
+                    (uint32_t)1u << state->scan_index;
             state->scan_wait_sequence = input->range_sequence;
             ++state->scan_index;
             if (state->scan_index < count)
                 state->pan_angle_deg = ScanAngleAt(state, config,
                                                    state->scan_index);
-            else if (state->scan_stage == AX_AVOID_SCAN_COARSE)
+            else if (state->scan_stage == AX_AVOID_SCAN_COARSE) {
+                state->coarse_valid_mask = state->scan_valid_mask;
+                memcpy(state->coarse_distance_mm, state->scan_distance_mm,
+                       sizeof(state->coarse_distance_mm));
                 SelectCoarseDirection(state, config, input);
-            else
+            } else
                 SelectFineDirection(state, config, input);
         }
     }
