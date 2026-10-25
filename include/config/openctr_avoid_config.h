@@ -14,6 +14,12 @@
 #define OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG 40
 #define OPENCTR_AVOID_TRACK_PROBE_STEP_DEG 5
 
+/* SCAN calibration: command angle that physically points the sensor forward.
+ * Leave at 0 until measured. Applied to SCAN and FOLLOW_AVOID pan commands. */
+#ifndef OPENCTR_AVOID_PAN_ZERO_OFFSET_DEG
+#define OPENCTR_AVOID_PAN_ZERO_OFFSET_DEG -4
+#endif
+
 /* 测距节奏。完整换角等待也作用于手动扫描；测量间隔作用于全部超声波模式。 */
 #ifndef OPENCTR_AVOID_PAN_SETTLE_MS
 /* 舵机换角后等待稳定。 */

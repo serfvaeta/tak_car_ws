@@ -32,7 +32,7 @@ void AX_RANGE_PAN_AvoidRequestProbeAngle(int16_t degrees);
 uint8_t AX_RANGE_PAN_GetAvoidSample(uint32_t max_age_ms,
                                    AX_RANGE_PAN_Sample *out);
 
-/* One new X press decreases 15 degrees; one new B press increases 15 degrees. */
+/* One new X press decreases 1 degree; one new B press increases 1 degree. */
 void AX_RANGE_PAN_ScanButtons(uint8_t x_down, uint8_t b_down);
 
 /* Called once per 20 ms from Robot_Task. */

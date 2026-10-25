@@ -36,7 +36,8 @@ AX_PS2_InputAction AX_CTL_Ps2(JOYSTICK_TypeDef my_joystick)
 		return action;
 	}
 	if(action == AX_PS2_INPUT_SCAN ||
-	   action == AX_PS2_INPUT_FOLLOW_AVOID)
+	   action == AX_PS2_INPUT_FOLLOW_AVOID ||
+	   action == AX_PS2_INPUT_FOLLOW_AVOID2)
 	{
 		AX_CTL_Ps2StopChassis();
 		return action;

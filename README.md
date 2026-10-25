@@ -163,7 +163,7 @@
 
 `OPENCTR_ENABLE_SBUS_CONTROL=0` 仍关闭 SBUS 接收；`OPENCTR_ENABLE_TTL_CONTROL=0` 关闭原 TTL 控制协议，USART2 已改为单基站接收诊断；`OPENCTR_ENABLE_CAN_CONTROL=0` 关闭 CAN 接收中断，保留 CAN 遥测发送。USB-COM 的 USART3 仍可接收速度指令，并可将控制模式切回 ROS。恢复固件入口并不等于已经验证手机配对、手柄接收器连接或电机运动。
 
-PS2 控制来源内有四个子模式：手动驾驶、自动跟随、避障跟随和手动环视测距。按原有方式用 START 加左摇杆上推进入 PS2 后，默认手动驾驶；每次按下再松开 SELECT，按 `DRIVE → FOLLOW → FOLLOW_AVOID → SCAN → DRIVE` 循环切换，OLED 第 4 行显示当前模式。切换时底盘速度目标清零。离开 PS2 控制来源后，子模式重置为手动驾驶。手柄扫描超过 200 ms 未更新时按无效输入停车。
+PS2 控制来源内有五个子模式：手动驾驶、自动跟随、两种独立的避障跟随和手动环视测距。按原有方式用 START 加左摇杆上推进入 PS2 后，默认手动驾驶；每次按下再松开 SELECT，按 `DRIVE → FOLLOW → FOLLOW_AVOID → FOLLOW_AVOID2 → SCAN → DRIVE` 循环切换，OLED 第 4 行显示当前模式。切换时底盘速度目标清零。离开 PS2 控制来源后，子模式重置为手动驾驶。手柄扫描超过 200 ms 未更新时按无效输入停车。
 
 自动跟随只在 PS2 的 FOLLOW 子模式运行，控制规则在 `src/control/ax_follow_policy.c`。AOA 定位超过 300 ms 未更新即停车。跟随只使用报文中的方位角和距离，不使用仰角，也不对距离做水平投影。距离为 0 cm 或超过 600 cm 时停车；300～600 cm 的有效读数仍可用于跟随。先判断方位角：偏差达到 ±12° 时原地转向，回到 ±5° 内后再按距离控制前进与停车；较大角度不再因超过 ±60° 而直接停车。当前报文解析和跟随策略都没有前后判定；目标在车后时若仍收到有效角度与距离，也会进入跟随决策。
 
@@ -175,6 +175,14 @@ FOLLOW_AVOID 每轮都先进入 `ALIGN_TARGET`：按 AOA 方位角原地转向�
 
 AOA 距离达到 110 cm 才需要前进，缩短到 100 cm 后停止前进；即使目标已很近，仍先完成 AOA 转向。AOA 或测距失效时停车。流程图见 [FOLLOW_AVOID 控制循环](docs/diagrams/follow_avoid_flow.svg)。
 
+`FOLLOW_AVOID2` 是单独新增的避障模式，状态、参数和决策模块均与 `FOLLOW_AVOID` 分开；它复用 AOA、XURSC/SG90、陀螺仪和编码器输入。每轮先停车做 `-90°…+90°`、间隔 6° 的中心向外粗扫；只保留新鲜、有效且距离至少 600 mm 的角度，再按接近 AOA 目标方向的程度取最多 5 个候选。当前安装下原始 AOA 正角表示左侧，AVOID2 会转换成“正角右侧”的扫描坐标再排序。依次围绕候选角检查中心及左右 ±5°、±10° 五个测点；五点都达到 600 mm 才接受。若一侧不安全，就把规划中心向安全侧修正 5° 后重新检查；两侧都不安全或该候选修正失败时尝试下一候选。每个候选最多修正 10 次，并用已访问角度避免循环。
+
+接受的细选中心角就是实际转向角，不再额外叠加 16°。转向时持续要求新鲜的正前方测距；转完后必须再取得一笔新的正前方读数且达到 600 mm，才按 `min(转后正前方测距, 2000 mm) - 400 mm` 计算本段前进距离，最高速度为 100 mm/s。例如测到 900 mm，就前进 500 mm；测到 2000 mm 或更远，最多前进 1600 mm。短程完成后重新粗扫。前进中测距降到 400 mm 或以下时停车并重新粗扫；低于 250 mm 时进入紧急停车重扫。传感器数据无效/过期、扫描超时或找不到可行候选时也停车。600 mm 仍是选路和转向后放行的最低测距。该模式不自动倒车或横移。AOA 距离沿用 FOLLOW 的 110 cm 开始、100 cm 停止门限。
+
+AVOID2 参数集中在 `include/config/openctr_avoid2_config.h`。前进距离按转向后新鲜的正前方距离计算，测距值封顶 2000 mm，再减 400 mm 余量。里程累计保留每次不足 1 mm 的余数；前进时每 1 秒须至少累计 20 mm 新路程，若中途停滞则停车重扫。无效的扫描容量、步长或运动阈值配置也会使策略停车。
+
+粗扫 31 个方向时，每点除了 250 ms 舵机稳定时间，还需等待回波和 20 ms 控制周期；给这些时间留余量后，粗扫超时设为 15 秒。完整细选最多包含 5 个候选、每个 11 个五点窗口，因此整体超时设为 120 秒；转向后正前方验证超时为 2 秒。安全距离、紧急停车距离、候选数、修正次数分别为 600 mm、250 mm、5 个和 10 次。AVOID2 现在通过 USB-COM `0x17` 帧报告阶段、停车原因、传感器输入、转向/路程进度和候选序号；运行 `python3 tools/range_pan_serial.py --port /dev/ttyACM0 --seconds 30` 可查看。若一直重复 `COARSE_TIMEOUT`、`NO_COARSE_CANDIDATE` 或 `NO_SAFE_FINE`，记录这些帧和同时输出的 XURSC 测距，可区分等待测量、距离不够和超时。AVOID2 策略、运行适配、诊断和 PS2 循环分别有主机测试，命令见下方回归测试说明。固件已在主机完成 PlatformIO 构建，但尚未实车验证或烧录；实车前需要先架空车轮校验 AOA/陀螺仪正负方向，再在低速、宽敞区域测试。
+
 避障参数集中在 `include/config/openctr_avoid_config.h`。调试超声波对障碍物的反应，先看这几项（距离单位 mm，时间单位 ms）：
 
 | 参数 | 当前值 | 作用 |
@@ -182,6 +190,7 @@ AOA 距离达到 110 cm 才需要前进，缩短到 100 cm 后停止前进；即
 | `OPENCTR_AVOID_FRONT_STOP_MM` | 350 | FORWARD 任一探测方向低于此值时停车并侧扫；调大可以更早避障。 |
 | `OPENCTR_AVOID_FRONT_RELEASE_MM` | 400 | 正前方达到此值才允许恢复前进；必须大于停车距离。 |
 | `OPENCTR_AVOID_SIDE_MIN_MM` | 400 | 侧扫读数达到此值才把该方向当作候选；非正前方方向还需大于前进余量，确保本段前进距离非零。 |
+| `OPENCTR_AVOID_PAN_ZERO_OFFSET_DEG` | 0 | 超声波实际正对车头时的未校准舵机命令角；加到 SCAN 和 FOLLOW_AVOID 的舵机输出，正负号按实测填写。 |
 | `OPENCTR_AVOID_PAN_SETTLE_MS` | 250 | 完整侧扫、回中及手动扫描的换角等待时间。 |
 | `OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG` | 40 | FORWARD 往返探测的两侧端点角度。 |
 | `OPENCTR_AVOID_TRACK_PROBE_STEP_DEG` | 5 | FORWARD 每次换角和测距的角度间隔。 |
@@ -205,9 +214,9 @@ FOLLOW_AVOID 通过 USB-COM 的 `0x16` 帧报告状态、传感器读数和速�
 
 距离阈值、角度阈值、速度上下限、比例增益和底盘 X 轴限速集中在 `include/config/openctr_follow_config.h` 配置；底盘 X 轴限速适用于所有控制来源。已按当前安装测得的“信标在车头右侧时方位角为负”将 `platformio.ini` 中 `OPENCTR_FOLLOW_AZIMUTH_TO_YAW_SIGN` 设为 `1`：正角左转，负角右转。若改变基站安装方向，需要重新确认这个符号；设为 `0` 时 FOLLOW 始终停车。
 
-SCAN 模式将底盘目标速度和电机 PWM 都置零，并清除麦轮速度 PID 的旧累计输出。进入时 SG90 指向 0°；手柄 X 每按一次减 15°，B 每按一次加 15°，范围为 -90° 到 +90°。按住不会连续转，两键同时按也不会转；每次重新进入 SCAN 都从 0° 开始。XURSC 持续测量当前方向，转角后等待 250 ms 再测；USB-COM 的 `0x15` 帧包含有符号角度（2 字节）、测距状态（1 字节）和距离毫米（2 字节）。运行 `python3 tools/range_pan_serial.py --port /dev/ttyACM0 --seconds 20` 可查看测距结果。退出 SCAN 后停止主动测距并释放舵机 PWM。USB-COM 独立角度指令只在 PS2 控制来源以外可用，SCAN 和 FOLLOW 都不会继承手动测距状态；FOLLOW_AVOID 则由避障控制器独占舵机和测距。
+SCAN 模式将底盘目标速度和电机 PWM 都置零，并清除麦轮速度 PID 的旧累计输出。进入时 SG90 指向逻辑 0°；手柄 X 每按一次减 1°，B 每按一次加 1°，逻辑范围为 -90° 到 +90°。按住不会连续转，两键同时按也不会转；每次重新进入 SCAN 都从逻辑 0° 开始。XURSC 持续测量当前方向，转角后等待 250 ms 再测；USB-COM 的 `0x15` 帧包含有符号角度（2 字节）、测距状态（1 字节）和距离毫米（2 字节）。运行 `python3 tools/range_pan_serial.py --port /dev/ttyACM0 --seconds 30` 可查看角度与测距。首次校准保持 `OPENCTR_AVOID_PAN_ZERO_OFFSET_DEG=0`，在 SCAN 中按 X/B 直到超声波实际正对车头，记下脚本最后显示的 `SG90 已执行` 角度；退出 SCAN 后把该带符号角度填入配置，重新编译烧录。此后 SCAN 和 FOLLOW_AVOID 的逻辑 0° 都指向校准后的车头方向，偏移后的舵机命令会限制在硬件 ±90° 内。角度帧只报告命令，不是舵机实际位置反馈。退出 SCAN 后停止主动测距并释放舵机 PWM。USB-COM 独立角度指令只在 PS2 控制来源以外可用，SCAN 和 FOLLOW 都不会继承手动测距状态；FOLLOW_AVOID 和 FOLLOW_AVOID2 均由各自的避障控制器独占舵机和测距。
 
-机械臂输入处理在 `src/control/ax_legacy_arm_input.c`，关节数据和舵机输出在 `src/control/ax_legacy_arm.c`；默认配置关闭旧机械臂。`src/control/ax_obstacle_guard.c` 保留为未接入控制模式的纯决策模块。FOLLOW 只使用 AOA，不使用超声波或舵机；FOLLOW_AVOID 使用两者绕过有限的静态障碍；SCAN 只采集距离，不控制底盘绕障。实车行驶时应预留空间并保持可随时停车。
+机械臂输入处理在 `src/control/ax_legacy_arm_input.c`，关节数据和舵机输出在 `src/control/ax_legacy_arm.c`；默认配置关闭旧机械臂。`src/control/ax_obstacle_guard.c` 保留为未接入控制模式的纯决策模块。FOLLOW 只使用 AOA，不使用超声波或舵机；FOLLOW_AVOID 和 FOLLOW_AVOID2 使用 AOA、超声波与舵机执行各自不同的避障流程；SCAN 只采集距离，不控制底盘绕障。实车行驶时应预留空间并保持可随时停车。
 
 控制来源切换时会清除上一来源的目标速度并停止电机输出；各来源的三轴速度会原子提交。运动学使用目标快照及版本号，若计算期间收到新指令，会丢弃旧轮速结果。
 
@@ -227,7 +236,9 @@ SCAN 模式将底盘目标速度和电机 PWM 都置零，并清除麦轮速度 
 
 避障跟随决策测试在 `tests/test_follow_avoid_policy.c` 和 `tests/test_follow_avoid_sweep.c`；可分别用 `cc -std=c99 -Wall -Wextra -Werror -Isrc/control -Isrc/sensors -Iinclude/config tests/test_follow_avoid_policy.c src/control/ax_follow_avoid_policy.c -o /tmp/test_follow_avoid_policy && /tmp/test_follow_avoid_policy` 与 `cc -std=c99 -Wall -Wextra -Werror -Isrc/control -Isrc/sensors -Iinclude/config tests/test_follow_avoid_sweep.c src/control/ax_follow_avoid_policy.c -o /tmp/test_follow_avoid_sweep && /tmp/test_follow_avoid_sweep` 编译运行。
 
-跟随配置与速度下发的 C 测试在 `tests/test_follow_step.c`。编译和运行可用：`cc -std=c99 -Wall -Wextra -Werror -DOPENCTR_FOLLOW_AZIMUTH_TO_YAW_SIGN=1 -Itests/follow_stubs -Isrc/app -Isrc/communication -Isrc/control -Iinclude/config tests/test_follow_step.c src/control/ax_follow.c src/control/ax_follow_profile.c src/control/ax_follow_policy.c -o /tmp/test_follow_step && /tmp/test_follow_step`。独立防撞决策模块的测试在 `tests/test_obstacle_guard.c`；模式循环测试在 `tests/test_ps2_mode.c`；SCAN 的手动 15° 步进、测距与退出行为测试在 `tests/test_range_pan.c`；零速度时 PID 清零测试在 `tests/test_speed_stop.c`。
+FOLLOW_AVOID2 的纯策略测试可用 `cc -std=c99 -Wall -Wextra -Werror -Isrc/control -Isrc/sensors -Iinclude/config tests/test_follow_avoid2_policy.c src/control/ax_follow_avoid2_policy.c -o /tmp/test_follow_avoid2_policy && /tmp/test_follow_avoid2_policy`；运行适配和 AOA/陀螺仪符号映射测试可用 `cc -std=c99 -Wall -Wextra -Werror -DOPENCTR_FOLLOW_AZIMUTH_TO_YAW_SIGN=1 -Itests/follow_avoid2_stubs -Isrc/control -Isrc/sensors -Iinclude/config tests/test_follow_avoid2_runtime.c src/control/ax_follow_avoid2_policy.c src/control/ax_follow_avoid2_diag.c src/control/ax_follow_avoid2.c -o /tmp/test_follow_avoid2_runtime && /tmp/test_follow_avoid2_runtime`。诊断帧编码测试可用 `cc -std=c99 -Wall -Wextra -Werror -Isrc/control -Isrc/sensors tests/test_follow_avoid2_diag.c src/control/ax_follow_avoid2_diag.c -o /tmp/test_follow_avoid2_diag && /tmp/test_follow_avoid2_diag`；串口解码测试可用 `python3 -m unittest tools/test_range_pan_serial.py`。PS2 五模式循环测试同样可用 `cc -std=c99 -Wall -Wextra -Werror -Isrc/control tests/test_ps2_mode.c src/control/ax_ps2_mode.c -o /tmp/test_ps2_mode && /tmp/test_ps2_mode`。
+
+跟随配置与速度下发的 C 测试在 `tests/test_follow_step.c`。编译和运行可用：`cc -std=c99 -Wall -Wextra -Werror -DOPENCTR_FOLLOW_AZIMUTH_TO_YAW_SIGN=1 -Itests/follow_stubs -Isrc/app -Isrc/communication -Isrc/control -Iinclude/config tests/test_follow_step.c src/control/ax_follow.c src/control/ax_follow_profile.c src/control/ax_follow_policy.c -o /tmp/test_follow_step && /tmp/test_follow_step`。独立防撞决策模块的测试在 `tests/test_obstacle_guard.c`；模式循环测试在 `tests/test_ps2_mode.c`；SCAN 的手动 1° 步进、测距与退出行为测试在 `tests/test_range_pan.c`；零速度时 PID 清零测试在 `tests/test_speed_stop.c`。
 
 需要持续查看基站测量结果时，运行 `python3 tools/aoa_distance_elevation.py --port /dev/ttyACM0`，按 Ctrl+C 退出。脚本只显示校验正确的 `0x2001` 定位帧中的距离（cm）、方位角（度）、左右角度文字和仰角（度）；当前安装下正角标“左侧角度”、负角标“右侧角度”、0° 标“左右居中”，均提示“前后未知”。目标在正后方或斜后方时，±90° 内的角度不证明它在车前。没有定位帧时会继续等待。若实际 USB-COM 端口不是 `/dev/ttyACM0`，将参数改为对应设备名。
 

@@ -23,6 +23,8 @@ int main(void)
     assert(press_release() == AX_PS2_INPUT_MODE_CHANGED);
     assert(AX_PS2_ModeUpdate(1, 0) == AX_PS2_INPUT_FOLLOW_AVOID);
     assert(press_release() == AX_PS2_INPUT_MODE_CHANGED);
+    assert(AX_PS2_ModeUpdate(1, 0) == AX_PS2_INPUT_FOLLOW_AVOID2);
+    assert(press_release() == AX_PS2_INPUT_MODE_CHANGED);
     assert(AX_PS2_ModeUpdate(1, 0) == AX_PS2_INPUT_SCAN);
     assert(press_release() == AX_PS2_INPUT_MODE_CHANGED);
     assert(AX_PS2_ModeUpdate(1, 0) == AX_PS2_INPUT_DRIVE);

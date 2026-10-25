@@ -8,6 +8,7 @@
 #include "ax_legacy_arm.h"
 #include "ax_ps2_mode.h"
 #include "ax_follow_avoid.h"
+#include "ax_follow_avoid2.h"
 #include "ax_aoa.h"
 
 //机器人速度数据
@@ -150,6 +151,7 @@ void Robot_Task(void* parameter)
 	JOYSTICK_TypeDef ps2_snapshot;
 	TickType_t ps2_snapshot_tick;
 	AX_PS2_InputAction ps2_action;
+	static uint8_t avoid_pan_was_enabled;
 #endif
 
 	//用于保存上次时间。调用后系统自动更新
@@ -202,8 +204,22 @@ void Robot_Task(void* parameter)
 #endif
 		
 		AX_RANGE_PAN_SetManualAllowed(control_source != CTL_PS2);
-		AX_RANGE_PAN_SetAvoidEnabled(control_source == CTL_PS2 &&
-			AX_PS2_ModeGet() == AX_PS2_MODE_FOLLOW_AVOID);
+#if OPENCTR_ENABLE_PS2_CONTROL
+		{
+			AX_PS2_Mode ps2_mode = AX_PS2_ModeGet();
+			uint8_t avoid_pan_enabled = control_source == CTL_PS2 &&
+				(ps2_mode == AX_PS2_MODE_FOLLOW_AVOID ||
+				 ps2_mode == AX_PS2_MODE_FOLLOW_AVOID2);
+			/* Force a fresh pan/range generation between the two avoid modes. */
+			if(avoid_pan_enabled && avoid_pan_was_enabled &&
+			   ps2_action == AX_PS2_INPUT_MODE_CHANGED)
+				AX_RANGE_PAN_SetAvoidEnabled(0);
+			AX_RANGE_PAN_SetAvoidEnabled(avoid_pan_enabled);
+			avoid_pan_was_enabled = avoid_pan_enabled;
+		}
+#else
+		AX_RANGE_PAN_SetAvoidEnabled(0);
+#endif
 		AX_RANGE_PAN_SetScanEnabled(control_source == CTL_PS2 &&
 			AX_PS2_ModeGet() == AX_PS2_MODE_SCAN);
 #if OPENCTR_ENABLE_PS2_CONTROL
@@ -221,6 +237,11 @@ void Robot_Task(void* parameter)
 			AX_FOLLOW_AVOID_Step();
 		else
 			AX_FOLLOW_AVOID_Reset();
+		if(control_source == CTL_PS2 &&
+		   ps2_action == AX_PS2_INPUT_FOLLOW_AVOID2)
+			AX_FOLLOW_AVOID2_Step();
+		else
+			AX_FOLLOW_AVOID2_Reset();
 #endif
 
 		//机器人运动学处理
@@ -593,6 +614,8 @@ void Disp_Task(void* parameter)
 				AX_OLED_DispStr(0, 4, "Mode: FOLLOW         ", 0);
 			else if(AX_PS2_ModeGet() == AX_PS2_MODE_FOLLOW_AVOID)
 				AX_OLED_DispStr(0, 4, "Mode: AVOID          ", 0);
+			else if(AX_PS2_ModeGet() == AX_PS2_MODE_FOLLOW_AVOID2)
+				AX_OLED_DispStr(0, 4, "Mode: AVOID2         ", 0);
 			else
 				AX_OLED_DispStr(0, 4, "Mode: SCAN           ", 0);
 		}

@@ -6,7 +6,7 @@
 #include "ax_sg90_pan.h"
 #include "ax_xursc.h"
 
-#define RANGE_PAN_SCAN_STEP_DEG 15
+#define RANGE_PAN_SCAN_STEP_DEG 1
 
 #if OPENCTR_ENABLE_SG90_PAN
 static volatile int16_t requested_angle;
@@ -258,10 +258,14 @@ void AX_RANGE_PAN_TaskStep(void)
     __set_PRIMASK(primask);
 
     if (apply_angle) {
+        int16_t servo_angle;
         if (angle > 90) angle = 90;
         if (angle < -90) angle = -90;
+        servo_angle = (int16_t)(angle + OPENCTR_AVOID_PAN_ZERO_OFFSET_DEG);
+        if (servo_angle > 90) servo_angle = 90;
+        if (servo_angle < -90) servo_angle = -90;
         AX_SG90_PanInit();
-        AX_SG90_PanSetAngle(angle);
+        AX_SG90_PanSetAngle(servo_angle);
         angle_changed_tick = now_tick;
         angle_settle_ms = fast_settle ?
             OPENCTR_AVOID_TRACK_PROBE_SETTLE_MS :

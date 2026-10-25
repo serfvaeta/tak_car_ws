@@ -46,6 +46,8 @@ AX_PS2_InputAction AX_PS2_ModeUpdate(uint8_t valid, uint8_t select_down)
                      : current_mode == AX_PS2_MODE_FOLLOW ?
                            AX_PS2_MODE_FOLLOW_AVOID
                      : current_mode == AX_PS2_MODE_FOLLOW_AVOID ?
+                           AX_PS2_MODE_FOLLOW_AVOID2
+                     : current_mode == AX_PS2_MODE_FOLLOW_AVOID2 ?
                            AX_PS2_MODE_SCAN
                      : AX_PS2_MODE_DRIVE;
         return AX_PS2_INPUT_MODE_CHANGED;
@@ -55,6 +57,8 @@ AX_PS2_InputAction AX_PS2_ModeUpdate(uint8_t valid, uint8_t select_down)
          : current_mode == AX_PS2_MODE_FOLLOW ? AX_PS2_INPUT_FOLLOW
          : current_mode == AX_PS2_MODE_FOLLOW_AVOID ?
                AX_PS2_INPUT_FOLLOW_AVOID
+         : current_mode == AX_PS2_MODE_FOLLOW_AVOID2 ?
+               AX_PS2_INPUT_FOLLOW_AVOID2
          : AX_PS2_INPUT_SCAN;
 }
 

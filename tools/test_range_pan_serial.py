@@ -1,4 +1,5 @@
 import sys
+import struct
 import unittest
 from pathlib import Path
 
@@ -54,6 +55,18 @@ class RangePanProtocolTests(unittest.TestCase):
         description = describe_frame(0x16, payload)
         self.assertIn("RESCAN_WAIT", description)
         self.assertIn("WAIT_RESCAN", description)
+
+    def test_avoid2_diagnostic_explains_repeated_scan(self):
+        payload = struct.pack(
+            ">BBBbhHbBHhhhhHhHBBBB",
+            6, 3, 3, 0, -20, 130, 84, 3, 900,
+            0, 0, 0, 0, 200, 0, 0, 29, 0, 0, 0,
+        )
+        description = describe_frame(0x17, payload)
+        self.assertIn("AVOID2 WAIT_RESCAN", description)
+        self.assertIn("COARSE_TIMEOUT", description)
+        self.assertIn("扫描=29", description)
+        self.assertIn("84°/900mm/READY", description)
 
 
 if __name__ == "__main__":

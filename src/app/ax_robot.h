@@ -196,6 +196,7 @@ typedef struct
 #define  ID_UTX_SG90_PAN 0x12    //USB-COM: 已执行的舵机角度(度)
 #define  ID_UTX_SCAN     0x15    //USB-COM: 角度(int16) + 状态 + 距离(mm)
 #define  ID_UTX_AVOID_DIAG 0x16 //USB-COM: 避障状态、原因和输入/运动诊断
+#define  ID_UTX_AVOID2_DIAG 0x17 //USB-COM: AVOID2 阶段、原因和传感器诊断
 #define  ID_URX_VEL      0x50    //接收的速度数据
 #define  ID_URX_ANGLE    0x60    //接收的机械臂角度数据
 #define  ID_URX_SG90_PAN 0x61    //USB-COM: SG90 目标角度(度)

@@ -3,6 +3,7 @@
 
 #include "ax_range_pan.h"
 #include "ax_xursc.h"
+#include "openctr_avoid_config.h"
 
 static TickType_t fake_tick;
 static AX_XURSC_Status fake_status = AX_XURSC_IDLE;
@@ -14,6 +15,15 @@ static unsigned range_packet_count;
 static uint8_t last_range_packet[3];
 static unsigned scan_packet_count;
 static uint8_t last_scan_packet[5];
+
+static int16_t ExpectedServoAngle(int16_t logical_angle)
+{
+    int16_t physical_angle =
+        (int16_t)(logical_angle + OPENCTR_AVOID_PAN_ZERO_OFFSET_DEG);
+    if (physical_angle > 90) return 90;
+    if (physical_angle < -90) return -90;
+    return physical_angle;
+}
 
 uint32_t __get_PRIMASK(void) { return 0; }
 void __disable_irq(void) {}
@@ -51,6 +61,28 @@ AX_XURSC_Status AX_XURSC_GetStatus(uint16_t *distance_mm)
 
 int main(void)
 {
+#ifdef TEST_RANGE_PAN_ZERO_OFFSET
+    /* A measured +7-degree command points the sensor straight ahead. */
+    AX_RANGE_PAN_SetManualAllowed(0);
+    AX_RANGE_PAN_SetScanEnabled(1);
+    AX_RANGE_PAN_ScanButtons(0, 0);
+    AX_RANGE_PAN_TaskStep();
+    assert(applied_angle == 7);
+    AX_RANGE_PAN_ScanButtons(0, 1);
+    AX_RANGE_PAN_TaskStep();
+    assert(applied_angle == 8);
+    AX_RANGE_PAN_SetScanEnabled(0);
+    AX_RANGE_PAN_SetAvoidEnabled(1);
+    AX_RANGE_PAN_TaskStep();
+    assert(applied_angle == 7);
+    AX_RANGE_PAN_AvoidRequestAngle(-20);
+    AX_RANGE_PAN_TaskStep();
+    assert(applied_angle == ExpectedServoAngle(-20));
+    AX_RANGE_PAN_AvoidRequestAngle(90);
+    AX_RANGE_PAN_TaskStep();
+    assert(applied_angle == 90); /* Physical command stays within limits. */
+    return 0;
+#endif
 #ifdef TEST_RANGE_PAN_TIMING_OVERRIDE
     /* A tuning build must honor the configured pan wait and ping interval. */
     AX_RANGE_PAN_RequestAngle(30);
@@ -75,7 +107,7 @@ int main(void)
 #endif
     AX_RANGE_PAN_RequestAngle(30);
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 30);
+    assert(applied_angle == ExpectedServoAngle(30));
     assert(trigger_count == 0);
     fake_tick = 249;
     AX_RANGE_PAN_TaskStep();
@@ -94,7 +126,7 @@ int main(void)
     AX_RANGE_PAN_RequestAngle(-45);
     fake_tick = 280;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == -45);
+    assert(applied_angle == ExpectedServoAngle(-45));
     fake_tick = 529;
     AX_RANGE_PAN_TaskStep();
     assert(trigger_count == 1);
@@ -113,7 +145,7 @@ int main(void)
     AX_RANGE_PAN_RequestAngle(45);
     fake_tick = 660;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 45);
+    assert(applied_angle == ExpectedServoAngle(45));
     fake_status = AX_XURSC_READY;
     fake_distance_mm = 900;
     fake_tick = 680;
@@ -135,7 +167,7 @@ int main(void)
     AX_RANGE_PAN_ScanButtons(0, 0);
     fake_tick = 1000;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 0);
+    assert(applied_angle == ExpectedServoAngle(0));
     fake_tick = 1249;
     AX_RANGE_PAN_TaskStep();
     assert(scan_packet_count == 0);
@@ -153,22 +185,22 @@ int main(void)
     AX_RANGE_PAN_SetManualAllowed(0);
     AX_RANGE_PAN_ScanButtons(0, 0);
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 0); /* A completed echo does not advance the pan. */
+    assert(applied_angle == ExpectedServoAngle(0)); /* Echo keeps pan still. */
 
     AX_RANGE_PAN_ScanButtons(0, 1); /* B pressed. */
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 15);
+    assert(applied_angle == ExpectedServoAngle(1));
     AX_RANGE_PAN_ScanButtons(0, 1); /* Held B moves only once. */
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 15);
+    assert(applied_angle == ExpectedServoAngle(1));
     AX_RANGE_PAN_ScanButtons(0, 0);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
     AX_RANGE_PAN_ScanButtons(0, 1);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 30);
+    assert(applied_angle == ExpectedServoAngle(2));
     AX_RANGE_PAN_ScanButtons(0, 0);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
@@ -179,17 +211,17 @@ int main(void)
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
     assert(scan_packet_count == 2);
-    assert(last_scan_packet[0] == 0 && last_scan_packet[1] == 30);
+    assert(last_scan_packet[0] == 0 && last_scan_packet[1] == 2);
     assert(last_scan_packet[2] == AX_XURSC_TIMEOUT);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 30);
+    assert(applied_angle == ExpectedServoAngle(2));
 
-    for (int16_t expected = 15; expected >= -90; expected -= 15) {
+    for (int16_t expected = 1; expected >= -90; --expected) {
         AX_RANGE_PAN_ScanButtons(1, 0); /* X pressed. */
         fake_tick += 20;
         AX_RANGE_PAN_TaskStep();
-        assert(applied_angle == expected);
+        assert(applied_angle == ExpectedServoAngle(expected));
         AX_RANGE_PAN_ScanButtons(0, 0); /* X released. */
         fake_tick += 20;
         AX_RANGE_PAN_TaskStep();
@@ -197,23 +229,23 @@ int main(void)
     AX_RANGE_PAN_ScanButtons(1, 0); /* Cannot pass -90. */
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == -90);
+    assert(applied_angle == ExpectedServoAngle(-90));
     AX_RANGE_PAN_ScanButtons(0, 0);
     AX_RANGE_PAN_ScanButtons(1, 1); /* Simultaneous buttons do nothing. */
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == -90);
+    assert(applied_angle == ExpectedServoAngle(-90));
     AX_RANGE_PAN_ScanButtons(0, 0);
     AX_RANGE_PAN_ScanButtons(0, 1);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == -75);
+    assert(applied_angle == ExpectedServoAngle(-89));
     AX_RANGE_PAN_ScanButtons(0, 0);
-    for (int16_t expected = -60; expected <= 90; expected += 15) {
+    for (int16_t expected = -88; expected <= 90; ++expected) {
         AX_RANGE_PAN_ScanButtons(0, 1);
         fake_tick += 20;
         AX_RANGE_PAN_TaskStep();
-        assert(applied_angle == expected);
+        assert(applied_angle == ExpectedServoAngle(expected));
         AX_RANGE_PAN_ScanButtons(0, 0);
         fake_tick += 20;
         AX_RANGE_PAN_TaskStep();
@@ -221,11 +253,11 @@ int main(void)
     AX_RANGE_PAN_ScanButtons(0, 1); /* Cannot pass +90. */
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 90);
+    assert(applied_angle == ExpectedServoAngle(90));
     AX_RANGE_PAN_SetScanEnabled(0);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 90);
+    assert(applied_angle == ExpectedServoAngle(90));
     unsigned count_at_exit = trigger_count;
     fake_tick += 1000;
     AX_RANGE_PAN_TaskStep();
@@ -236,18 +268,18 @@ int main(void)
     AX_RANGE_PAN_ScanButtons(0, 1); /* Held on entry does not move. */
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 0); /* Re-entry starts centered. */
+    assert(applied_angle == ExpectedServoAngle(0)); /* Re-entry centers. */
     AX_RANGE_PAN_ScanButtons(0, 1);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 0);
+    assert(applied_angle == ExpectedServoAngle(0));
     AX_RANGE_PAN_ScanButtons(0, 0);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
     AX_RANGE_PAN_ScanButtons(0, 1);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 15);
+    assert(applied_angle == ExpectedServoAngle(1));
     fake_tick += 250;
     AX_RANGE_PAN_TaskStep();
     unsigned scan_count_at_exit = scan_packet_count;
@@ -262,7 +294,7 @@ int main(void)
     AX_RANGE_PAN_RequestAngle(30);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 30);
+    assert(applied_angle == ExpectedServoAngle(30));
     fake_tick += 250;
     AX_RANGE_PAN_TaskStep();
     assert(trigger_count == count_at_exit + 2);
@@ -275,7 +307,7 @@ int main(void)
     AX_RANGE_PAN_TaskStep();
     fake_tick += 1000;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 30);
+    assert(applied_angle == ExpectedServoAngle(30));
     assert(trigger_count == trigger_count_before_ps2);
     assert(range_packet_count == range_count_before_ps2);
     assert(release_count == 4);
@@ -286,7 +318,7 @@ int main(void)
     AX_RANGE_PAN_RequestAngle(45); /* USB cannot move it during AVOID. */
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 0);
+    assert(applied_angle == ExpectedServoAngle(0));
     fake_tick += 250;
     AX_RANGE_PAN_TaskStep();
     assert(trigger_count == trigger_count_before_ps2 + 1);
@@ -308,7 +340,7 @@ int main(void)
     assert(!AX_RANGE_PAN_GetAvoidSample(250, &sample));
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == -45);
+    assert(applied_angle == ExpectedServoAngle(-45));
     fake_tick += 250;
     AX_RANGE_PAN_TaskStep();
     assert(trigger_count == trigger_count_before_ps2 + 2);
@@ -343,7 +375,7 @@ int main(void)
     AX_RANGE_PAN_AvoidRequestProbeAngle(5);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 5);
+    assert(applied_angle == ExpectedServoAngle(5));
     unsigned count_before_probe = trigger_count;
     fake_tick += 59;
     AX_RANGE_PAN_TaskStep();
@@ -360,7 +392,7 @@ int main(void)
     AX_RANGE_PAN_AvoidRequestProbeAngle(15);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 15);
+    assert(applied_angle == ExpectedServoAngle(15));
     count_before_probe = trigger_count;
     fake_tick += 59;
     AX_RANGE_PAN_TaskStep();
@@ -377,7 +409,7 @@ int main(void)
     AX_RANGE_PAN_AvoidRequestProbeAngle(0);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == 0);
+    assert(applied_angle == ExpectedServoAngle(0));
     count_before_probe = trigger_count;
     fake_tick += 59;
     AX_RANGE_PAN_TaskStep();
@@ -392,7 +424,7 @@ int main(void)
     AX_RANGE_PAN_AvoidRequestProbeAngle(-10);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == -10);
+    assert(applied_angle == ExpectedServoAngle(-10));
     count_before_probe = trigger_count;
     fake_tick += 59;
     AX_RANGE_PAN_TaskStep();
@@ -409,7 +441,7 @@ int main(void)
     AX_RANGE_PAN_AvoidRequestProbeAngle(-15);
     fake_tick += 20;
     AX_RANGE_PAN_TaskStep();
-    assert(applied_angle == -15);
+    assert(applied_angle == ExpectedServoAngle(-15));
     count_before_probe = trigger_count;
     fake_tick += 59;
     AX_RANGE_PAN_TaskStep();

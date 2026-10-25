@@ -25,6 +25,13 @@ AVOID_REASON_HINTS = (
     "底盘不是四轮差速", "避障配置无效", "跟随目标要求停车",
     "前方距离不足", "未知锁定原因", "等待下一轮扫描",
 )
+AVOID2_PHASES = ("WAIT_TARGET", "COARSE_SCAN", "FINE_SCAN", "TURN",
+                 "VERIFY_FRONT", "MOVE", "WAIT_RESCAN")
+AVOID2_REASONS = ("NONE", "AOA_INVALID", "TARGET_NEAR", "COARSE_TIMEOUT",
+                  "NO_COARSE_CANDIDATE", "FINE_TIMEOUT", "NO_SAFE_FINE",
+                  "TURN_TIMEOUT", "FRONT_EMERGENCY", "VERIFY_TIMEOUT",
+                  "VERIFY_BLOCKED", "FRONT_INVALID", "MOVE_STALL",
+                  "BAD_CONFIG", "CHASSIS", "INVALID_STATE")
 
 
 def build_pan_frame(angle_degrees: int) -> bytes:
@@ -55,6 +62,25 @@ def extract_frames(buffer: bytearray):
 
 
 def describe_frame(frame_id: int, payload: bytes) -> str | None:
+    if frame_id == 0x17 and len(payload) == 30:
+        (phase, reason, flags, pan, azimuth, aoa_cm, range_angle,
+         status, range_mm, target_mm_s, actual_mm_s, target_yaw,
+         actual_yaw, elapsed_ms, progress, target, scan_index,
+         candidate_index, candidate_count, fine_index) = struct.unpack(
+             ">BBBbhHbBHhhhhHhHBBBB", payload)
+        phase_name = AVOID2_PHASES[phase] if phase < len(AVOID2_PHASES) else f"UNKNOWN({phase})"
+        reason_name = AVOID2_REASONS[reason] if reason < len(AVOID2_REASONS) else f"UNKNOWN({reason})"
+        aoa_text = f"{azimuth}°/{aoa_cm}cm" if flags & 1 else "无效"
+        range_text = (f"{range_angle}°/{range_mm}mm/{STATUS_NAMES.get(status, status)}"
+                      if flags & 2 else "无效")
+        progress_unit = "mrad" if phase == 3 else "mm" if phase == 5 else ""
+        return (f"AVOID2 {phase_name} 原因={reason_name} 舵机={pan}° "
+                f"AOA={aoa_text} 超声波={range_text} "
+                f"目标={target_mm_s}mm/s,{target_yaw}mrad/s "
+                f"实际={actual_mm_s}mm/s,{actual_yaw}mrad/s "
+                f"阶段={elapsed_ms}ms 进度={progress}/{target}{progress_unit} "
+                f"扫描={scan_index} 候选={candidate_index}/{candidate_count} "
+                f"细扫={fine_index}")
     if frame_id == 0x16 and len(payload) == 26:
         (phase, reason, flags, pan, azimuth, aoa_cm, range_angle,
          status, range_mm, target_mm_s, actual_mm_s, target_yaw,
@@ -123,6 +149,7 @@ def main(argv=None) -> int:
         telemetry_seen = False
         range_seen = False
         avoid_seen = False
+        avoid2_seen = False
         angle_ack_seen = args.angle is None
         while time.monotonic() < deadline:
             buffer.extend(port.read(128))
@@ -137,6 +164,8 @@ def main(argv=None) -> int:
                     range_seen = True
                 if frame_id == 0x16 and len(payload) == 26:
                     avoid_seen = True
+                if frame_id == 0x17 and len(payload) == 30:
+                    avoid2_seen = True
                 if angle_sent and frame_id == 0x12 and len(payload) == 2:
                     angle_ack_seen = struct.unpack(">h", payload)[0] == args.angle
                 description = describe_frame(frame_id, payload)
@@ -148,7 +177,7 @@ def main(argv=None) -> int:
         if not angle_sent:
             print("未能确认串口通信，舵机指令未发送", file=sys.stderr)
             return 1
-        if not range_seen and not avoid_seen:
+        if not range_seen and not avoid_seen and not avoid2_seen:
             print("未收到 XURSC 或避障诊断帧；请确认模式与固件", file=sys.stderr)
             return 1
         if not angle_ack_seen:
