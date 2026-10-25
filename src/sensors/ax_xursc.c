@@ -6,10 +6,11 @@
 #include "stm32f4xx_rcc.h"
 #include "stm32f4xx_tim.h"
 
-#define XURSC_ECHO_TIMEOUT_US   30000u
+/* A 10 m echo takes about 58.3 ms to make the round trip. */
+#define XURSC_ECHO_TIMEOUT_US   65000u
 #define XURSC_MIN_TRIGGER_GAP_US 60000u
-#define XURSC_MIN_DISTANCE_MM   20u
-#define XURSC_MAX_DISTANCE_MM   4000u
+#define XURSC_MIN_DISTANCE_MM   30u
+#define XURSC_MAX_DISTANCE_MM   10000u
 
 typedef enum {
     XURSC_PHASE_IDLE = 0,

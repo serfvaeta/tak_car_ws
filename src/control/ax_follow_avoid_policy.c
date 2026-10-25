@@ -39,6 +39,7 @@ static uint8_t ConfigValid(const AX_AVOID_Config *config)
            config->turn_settle_max_yaw_mrad_s <=
                (uint16_t)config->yaw_max_mrad_s &&
            config->turn_overshoot_mrad > 0u &&
+           config->front_recovery_ms > 0u &&
            config->advance_segment_cap_mm > 0u &&
            config->advance_clearance_mm > 0u &&
            config->stall_timeout_ms > 0u &&
@@ -119,6 +120,8 @@ static void ClearDetour(AX_AVOID_State *state)
 {
     state->detour_active = 0;
     state->turn_front_ready_seen = 0;
+    state->front_invalid_active = 0;
+    state->front_invalid_since_ms = 0;
     state->turn_settle_pending = 0;
     state->detour_angle_deg = 0;
     state->coarse_candidate_angle_deg = 0;
@@ -242,6 +245,31 @@ static void EnterRecovery(AX_AVOID_State *state,
     state->hold_reason = reason;
 }
 
+static void PauseForFront(AX_AVOID_State *state,
+                          const AX_AVOID_Config *config,
+                          const AX_AVOID_Input *input)
+{
+    if (!state->front_invalid_active) {
+        state->front_invalid_active = 1;
+        state->front_invalid_since_ms = input->now_ms;
+    }
+    if ((uint32_t)(input->now_ms - state->front_invalid_since_ms) >=
+        config->front_recovery_ms) {
+        ClearDetour(state);
+        EnterHold(state, AX_AVOID_DIAG_FRONT_STALE);
+    }
+}
+
+static uint8_t FrontRecovered(AX_AVOID_State *state,
+                              const AX_AVOID_Input *input)
+{
+    if (!state->front_invalid_active) return 0;
+    state->phase_start_ms += input->now_ms - state->front_invalid_since_ms;
+    state->front_invalid_active = 0;
+    state->front_invalid_since_ms = 0;
+    return 1;
+}
+
 static void EnterScan(AX_AVOID_State *state, const AX_AVOID_Config *config,
                       const AX_AVOID_Input *input)
 {
@@ -294,6 +322,8 @@ static void EnterTurnOut(AX_AVOID_State *state, const AX_AVOID_Input *input)
     state->phase_start_ms = input->now_ms;
     state->turn_progress_mrad = 0;
     state->turn_front_ready_seen = 0;
+    state->front_invalid_active = 0;
+    state->front_invalid_since_ms = 0;
     state->turn_settle_pending = 0;
     state->turn_settle_ms = 0;
     state->turn_settle_sequence = 0;
@@ -379,24 +409,25 @@ static AX_AVOID_Output StepTurnOut(AX_AVOID_State *state,
     uint32_t now_ms = input->now_ms;
     int8_t direction;
 
-    /* Center the sensor after the side scan. A new centered echo is needed
-     * before turning, and the range must remain fresh during the turn. */
+    /* Keep counting actual rotation while stopped for a missing echo. */
+    direction = (int8_t)(state->detour_side * config->azimuth_to_yaw_sign);
+    if (state->turn_front_ready_seen)
+        AddTurnProgress(&state->turn_progress_mrad,
+                        input->yaw_rate_mrad_s, dt_ms, direction);
+    if (!RangeReadyAt(input, 0)) {
+        PauseForFront(state, config, input);
+        return StopOutput(state);
+    }
+    FrontRecovered(state, input);
     if ((uint32_t)(now_ms - state->phase_start_ms) >=
         config->turn_timeout_ms) {
         EnterRecovery(state, input, AX_AVOID_DIAG_TURN_TIMEOUT);
         return StopOutput(state);
     }
-    if (!RangeReadyAt(input, 0)) {
-        if (state->turn_front_ready_seen) {
-            ClearDetour(state);
-            EnterAlign(state, input);
-        }
-        return StopOutput(state);
-    }
+    if (!state->turn_front_ready_seen)
+        AddTurnProgress(&state->turn_progress_mrad,
+                        input->yaw_rate_mrad_s, dt_ms, direction);
     state->turn_front_ready_seen = 1;
-    direction = (int8_t)(state->detour_side * config->azimuth_to_yaw_sign);
-    AddTurnProgress(&state->turn_progress_mrad,
-                    input->yaw_rate_mrad_s, dt_ms, direction);
     if (state->turn_progress_mrad >
         state->turn_target_mrad + config->turn_overshoot_mrad) {
         EnterScan(state, config, input);
@@ -569,15 +600,7 @@ static AX_AVOID_Output StepAdvance(AX_AVOID_State *state,
                                    uint32_t dt_ms)
 {
     AX_AVOID_Output output;
-    if (!RangeReadyAt(input, 0)) {
-        ClearDetour(state);
-        EnterAlign(state, input);
-        return StopOutput(state);
-    }
-    if (input->range_distance_mm < config->front_stop_mm) {
-        EnterScan(state, config, input);
-        return StopOutput(state);
-    }
+    uint8_t front_recovered;
     if (input->forward_mm_s > 0 && dt_ms != 0u) {
         uint64_t increment = (uint64_t)(uint16_t)input->forward_mm_s *
                              dt_ms / 1000u;
@@ -587,6 +610,20 @@ static AX_AVOID_Output StepAdvance(AX_AVOID_State *state,
         if (increment > UINT32_MAX - state->total_distance_mm)
             state->total_distance_mm = UINT32_MAX;
         else state->total_distance_mm += (uint32_t)increment;
+    }
+    if (!RangeReadyAt(input, 0)) {
+        PauseForFront(state, config, input);
+        return StopOutput(state);
+    }
+    front_recovered = FrontRecovered(state, input);
+    if (front_recovered &&
+        input->range_distance_mm < config->front_release_mm) {
+        EnterRecovery(state, input, AX_AVOID_DIAG_TURN_BLOCKED);
+        return StopOutput(state);
+    }
+    if (input->range_distance_mm < config->front_stop_mm) {
+        EnterScan(state, config, input);
+        return StopOutput(state);
     }
     if (config->max_distance_mm != 0u &&
         state->total_distance_mm >= config->max_distance_mm) {
@@ -621,13 +658,11 @@ AX_AVOID_Output AX_AVOID_Step(AX_AVOID_State *state,
                               const AX_AVOID_Config *config,
                               const AX_AVOID_Input *input)
 {
-    AX_AVOID_Output output;
     uint32_t dt_ms = 0;
     uint32_t now_ms;
 
     if (state == 0 || input == 0) return StopOutput(0);
     if (!state->initialized) AX_AVOID_Reset(state);
-    output = StopOutput(state);
     if (!ConfigValid(config)) {
         EnterHold(state, AX_AVOID_DIAG_BAD_CONFIG);
         return StopOutput(state);
@@ -646,7 +681,20 @@ AX_AVOID_Output AX_AVOID_Step(AX_AVOID_State *state,
          state->phase == AX_AVOID_RESCAN_WAIT))
         state->detour_start_ms += dt_ms;
 
-    if (state->phase == AX_AVOID_HOLD) return output;
+    if (state->phase == AX_AVOID_HOLD) {
+        if (state->hold_reason == AX_AVOID_DIAG_FRONT_STALE &&
+            input->aoa_valid && RangeReadyAt(input, 0)) {
+            if (input->aoa_distance_cm >= config->approach_start_cm)
+                state->approach_needed = 1;
+            else if (input->aoa_distance_cm <= config->approach_stop_cm)
+                state->approach_needed = 0;
+            if (state->approach_needed)
+                EnterScan(state, config, input);
+            else
+                EnterAlign(state, input);
+        }
+        return StopOutput(state);
+    }
     if (!input->aoa_valid) {
         state->approach_needed = 0;
         ClearDetour(state);

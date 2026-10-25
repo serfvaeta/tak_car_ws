@@ -9,7 +9,8 @@ static const AX_AVOID_Config config = {
     .coarse_scan_radius_deg = 20,
     .fine_scan_radius_deg = 12, .fine_scan_step_deg = 3,
     .track_probe_angle_deg = 25, .track_probe_step_deg = 5,
-    .range_max_age_ms = 250, .approach_start_cm = 110,
+    .range_max_age_ms = 250, .front_recovery_ms = 800,
+    .approach_start_cm = 110,
     .approach_stop_cm = 100, .follow_max_mm_s = 300,
     .advance_max_mm_s = 100, .yaw_max_mrad_s = 500,
     .turn_timeout_ms = 5000, .turn_settle_max_yaw_mrad_s = 100,
@@ -144,5 +145,122 @@ int main(void)
     out = echo(&state, &in, 0, 350, 100);
     assert(state.phase == AX_AVOID_SCAN_SIDE);
     assert(out.pan_angle_deg == 90 && out.forward_mm_s == 0);
+
+    /* A single missing echo after turning begins must pause, not turn back. */
+    AX_AVOID_Reset(&state);
+    in = input();
+    state.phase = AX_AVOID_TURN_OUT;
+    state.detour_active = 1;
+    state.approach_needed = 1;
+    state.turn_front_ready_seen = 1;
+    state.detour_side = 1;
+    state.turn_target_mrad = 500;
+    state.advance_target_mm = 400;
+    in.now_ms = 100;
+    in.range_valid = 0;
+    out = AX_AVOID_Step(&state, &config, &in);
+    assert(state.phase == AX_AVOID_TURN_OUT);
+    assert(out.forward_mm_s == 0 && out.yaw_mrad_s == 0);
+    in.now_ms = 120;
+    in.yaw_rate_mrad_s = 500;
+    AX_AVOID_Step(&state, &config, &in);
+    assert(state.turn_progress_mrad == 10);
+    in.now_ms = 140;
+    in.range_valid = 1;
+    in.range_distance_mm = 900;
+    in.range_triggered_ms = 130;
+    ++in.range_sequence;
+    out = AX_AVOID_Step(&state, &config, &in);
+    assert(state.phase == AX_AVOID_TURN_OUT);
+    assert(state.turn_progress_mrad == 20);
+    assert(out.yaw_mrad_s == 500);
+
+    /* The same pause applies just after ADVANCE starts. */
+    AX_AVOID_Reset(&state);
+    in = input();
+    state.phase = AX_AVOID_ADVANCE;
+    state.detour_active = 1;
+    state.approach_needed = 1;
+    state.advance_target_mm = 400;
+    in.now_ms = 100;
+    in.range_valid = 0;
+    out = AX_AVOID_Step(&state, &config, &in);
+    assert(state.phase == AX_AVOID_ADVANCE);
+    assert(out.forward_mm_s == 0 && out.yaw_mrad_s == 0);
+    in.now_ms = 120;
+    in.forward_mm_s = 100;
+    AX_AVOID_Step(&state, &config, &in);
+    assert(state.segment_distance_mm == 2);
+    in.now_ms = 140;
+    in.forward_mm_s = 0;
+    in.range_valid = 1;
+    in.range_distance_mm = 900;
+    in.range_triggered_ms = 130;
+    ++in.range_sequence;
+    out = AX_AVOID_Step(&state, &config, &in);
+    assert(state.phase == AX_AVOID_ADVANCE);
+    assert(out.forward_mm_s == 100);
+
+    AX_AVOID_Reset(&state);
+    in = input();
+    state.phase = AX_AVOID_ADVANCE;
+    state.detour_active = 1;
+    state.approach_needed = 1;
+    state.advance_target_mm = 400;
+    in.now_ms = 100;
+    in.range_valid = 0;
+    AX_AVOID_Step(&state, &config, &in);
+    for (unsigned i = 0; i < 40; ++i) {
+        in.now_ms += 20;
+        out = AX_AVOID_Step(&state, &config, &in);
+    }
+    assert(state.phase == AX_AVOID_HOLD);
+    assert(state.hold_reason == AX_AVOID_DIAG_FRONT_STALE);
+    assert(out.forward_mm_s == 0 && out.yaw_mrad_s == 0);
+    in.now_ms += 20;
+    in.range_valid = 1;
+    in.range_angle_deg = 0;
+    in.range_status = AX_XURSC_READY;
+    in.range_distance_mm = 900;
+    in.range_triggered_ms = in.now_ms - 10;
+    ++in.range_sequence;
+    out = AX_AVOID_Step(&state, &config, &in);
+    assert(state.phase == AX_AVOID_SCAN_SIDE);
+    assert(out.forward_mm_s == 0 && out.yaw_mrad_s == 0);
+
+    AX_AVOID_Reset(&state);
+    in = input();
+    state.phase = AX_AVOID_ADVANCE;
+    state.detour_active = 1;
+    state.approach_needed = 1;
+    state.advance_target_mm = 400;
+    in.now_ms = 100;
+    in.range_valid = 0;
+    AX_AVOID_Step(&state, &config, &in);
+    in.now_ms = 120;
+    in.range_valid = 1;
+    in.range_distance_mm = 350;
+    in.range_triggered_ms = 110;
+    ++in.range_sequence;
+    out = AX_AVOID_Step(&state, &config, &in);
+    assert(state.phase == AX_AVOID_ALIGN_TARGET);
+    assert(state.hold_reason == AX_AVOID_DIAG_TURN_BLOCKED);
+    assert(out.forward_mm_s == 0);
+
+    /* A timeout or out-of-range echo is unknown space, not clear space. */
+    AX_AVOID_Reset(&state);
+    in = input();
+    state.phase = AX_AVOID_ADVANCE;
+    state.detour_active = 1;
+    state.approach_needed = 1;
+    state.advance_target_mm = 400;
+    in.now_ms = 100;
+    in.range_status = AX_XURSC_TIMEOUT;
+    out = AX_AVOID_Step(&state, &config, &in);
+    assert(state.phase == AX_AVOID_ADVANCE && out.forward_mm_s == 0);
+    in.now_ms = 120;
+    in.range_status = AX_XURSC_OUT_OF_RANGE;
+    out = AX_AVOID_Step(&state, &config, &in);
+    assert(state.phase == AX_AVOID_ADVANCE && out.forward_mm_s == 0);
     return 0;
 }

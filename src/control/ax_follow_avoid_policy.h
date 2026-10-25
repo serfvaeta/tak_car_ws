@@ -59,6 +59,7 @@ typedef struct {
     int16_t track_probe_angle_deg;
     int16_t track_probe_step_deg;
     uint16_t range_max_age_ms;
+    uint16_t front_recovery_ms;
     uint16_t approach_start_cm;
     uint16_t approach_stop_cm;
     int16_t follow_max_mm_s;
@@ -118,6 +119,7 @@ typedef struct {
     uint8_t detour_active;
     uint8_t approach_needed;
     uint8_t turn_front_ready_seen;
+    uint8_t front_invalid_active;
     uint8_t turn_settle_pending;
     uint8_t initialized;
     uint8_t have_tick;
@@ -136,6 +138,7 @@ typedef struct {
     int32_t turn_target_mrad;
     uint32_t turn_settle_ms;
     uint32_t turn_settle_sequence;
+    uint32_t front_invalid_since_ms;
     uint32_t coarse_valid_mask;
     uint32_t coarse_attempted_mask;
     uint16_t coarse_distance_mm[AX_AVOID_SCAN_MAX_POINTS];
