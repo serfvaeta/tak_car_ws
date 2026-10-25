@@ -97,10 +97,10 @@ int main(void)
     assert(state.phase == AX_AVOID_TURN_OUT && out.forward_mm_s == 0);
     out = echo(&state, &in, 0, 400, 100);
     assert(state.phase == AX_AVOID_ADVANCE && out.forward_mm_s == 100);
-    assert(state.advance_target_mm == 600);
+    assert(state.advance_target_mm == 400);
 
     in.forward_mm_s = 100;
-    for (unsigned i = 0; i < 60; ++i)
+    for (unsigned i = 0; i < 40; ++i)
         out = echo(&state, &in, 0, 400, 100);
     assert(state.phase == AX_AVOID_ALIGN_TARGET);
     assert(out.forward_mm_s == 0);

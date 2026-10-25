@@ -18,7 +18,7 @@
 <text x="490" y="724" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" fill="#172033">取已确认扇形的中心角</text>
 <rect x="350" y="775" width="280" height="120" rx="18" fill="#fef3c7" stroke="#64748b" stroke-width="2"/>
 <text x="490" y="813" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="27" fill="#172033">ADVANCE</text>
-<text x="490" y="859" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="18" fill="#172033">每段最多前进 600 mm</text>
+<text x="490" y="859" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="18" fill="#172033">每段最多前进 400 mm</text>
 <rect x="40" y="505" width="280" height="120" rx="18" fill="#fee2e2" stroke="#64748b" stroke-width="2"/>
 <text x="180" y="543" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="27" fill="#172033">RESCAN_WAIT</text>
 <text x="180" y="589" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" fill="#172033">停车 2 秒后重新粗扫</text>
