@@ -36,6 +36,7 @@ static const AX_AVOID_Config avoid_config = {
     .side_min_mm = OPENCTR_AVOID_SIDE_MIN_MM,
     .scan_max_angle_deg = OPENCTR_AVOID_SCAN_MAX_ANGLE_DEG,
     .scan_step_deg = OPENCTR_AVOID_SCAN_STEP_DEG,
+    .coarse_scan_radius_deg = OPENCTR_AVOID_COARSE_SCAN_RADIUS_DEG,
     .fine_scan_radius_deg = OPENCTR_AVOID_FINE_SCAN_RADIUS_DEG,
     .fine_scan_step_deg = OPENCTR_AVOID_FINE_SCAN_STEP_DEG,
     .track_probe_angle_deg = OPENCTR_AVOID_TRACK_PROBE_ANGLE_DEG,

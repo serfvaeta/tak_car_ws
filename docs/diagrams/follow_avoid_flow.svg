@@ -12,7 +12,7 @@
 <text x="490" y="454" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" fill="#172033">每 10°；中心 ±20° 五点达标</text>
 <rect x="350" y="505" width="280" height="120" rx="18" fill="#dbeafe" stroke="#64748b" stroke-width="2"/>
 <text x="490" y="543" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="27" fill="#172033">细扫确认</text>
-<text x="490" y="589" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" fill="#172033">中心 ±20°，每 5° 九点达标</text>
+<text x="490" y="589" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" fill="#172033">中心 ±12°，每 3° 九点达标</text>
 <rect x="350" y="640" width="280" height="120" rx="18" fill="#fef3c7" stroke="#64748b" stroke-width="2"/>
 <text x="490" y="678" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="27" fill="#172033">实际转向角</text>
 <text x="490" y="724" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" fill="#172033">取已确认扇形的中心角</text>

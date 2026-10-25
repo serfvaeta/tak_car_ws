@@ -9,8 +9,9 @@ static AX_AVOID_Config config = {
     .side_min_mm = 650,
     .scan_max_angle_deg = 90,
     .scan_step_deg = 15,
-    .fine_scan_radius_deg = 20,
-    .fine_scan_step_deg = 5,
+    .coarse_scan_radius_deg = 20,
+    .fine_scan_radius_deg = 12,
+    .fine_scan_step_deg = 3,
     .track_probe_angle_deg = 25,
     .track_probe_step_deg = 5,
     .range_max_age_ms = 250,
@@ -89,12 +90,15 @@ static AX_AVOID_Output finish_fine_scan(AX_AVOID_State *state,
                                         int16_t open_angle_2,
                                         uint16_t distance_2)
 {
-    int16_t low = (int16_t)(state->scan_center_angle_deg - 20);
-    int16_t high = (int16_t)(state->scan_center_angle_deg + 20);
+    int16_t low = (int16_t)(state->scan_center_angle_deg -
+                            config.fine_scan_radius_deg);
+    int16_t high = (int16_t)(state->scan_center_angle_deg +
+                             config.fine_scan_radius_deg);
     if (low < -90) low = -90;
     if (high > 90) high = 90;
     assert(state->scan_stage == AX_AVOID_SCAN_FINE);
-    for (int16_t angle = high; angle >= low; angle -= 5) {
+    for (int16_t angle = high; angle >= low;
+         angle -= config.fine_scan_step_deg) {
         uint16_t distance = 350;
         if (angle == open_angle_1) distance = distance_1;
         if (angle == open_angle_2) distance = distance_2;
@@ -109,11 +113,14 @@ static AX_AVOID_Output finish_fine_corridor(AX_AVOID_State *state,
                                             int16_t high_open,
                                             uint16_t distance)
 {
-    int16_t low = (int16_t)(state->scan_center_angle_deg - 20);
-    int16_t high = (int16_t)(state->scan_center_angle_deg + 20);
+    int16_t low = (int16_t)(state->scan_center_angle_deg -
+                            config.fine_scan_radius_deg);
+    int16_t high = (int16_t)(state->scan_center_angle_deg +
+                             config.fine_scan_radius_deg);
     if (low < -90) low = -90;
     if (high > 90) high = 90;
-    for (int16_t angle = high; angle >= low; angle -= 5)
+    for (int16_t angle = high; angle >= low;
+         angle -= config.fine_scan_step_deg)
         sample(state, in, angle,
                angle >= low_open && angle <= high_open ? distance : 350,
                AX_XURSC_READY);
@@ -350,7 +357,10 @@ int main(void)
         sample(&state, &in, angle, mm, AX_XURSC_READY);
     }
     assert(state.scan_center_angle_deg == 45);
-    finish_fine_scan(&state, &in, 45, 900, 0, 0);
+    /* The outermost fine point fails even though the other eight pass. */
+    for (angle = 57; angle >= 33; angle -= 3)
+        sample(&state, &in, angle,
+               angle == 33 ? 350 : 900, AX_XURSC_READY);
     assert(state.phase == AX_AVOID_SCAN_SIDE);
     assert(state.scan_stage == AX_AVOID_SCAN_FINE);
     assert(state.scan_center_angle_deg == -45);
@@ -378,8 +388,10 @@ int main(void)
                AX_XURSC_READY);
     assert(state.phase == AX_AVOID_SCAN_SIDE);
     assert(state.scan_center_angle_deg == 30);
+    assert(state.pan_angle_deg == 42);
     finish_fine_corridor(&state, &in, 10, 50, 900);
     assert(state.phase == AX_AVOID_TURN_OUT);
+    assert(state.scan_index == 9);
     assert(state.detour_angle_deg == 30);
 
     /* The narrowest confirmed point limits the planned forward distance. */
@@ -390,9 +402,9 @@ int main(void)
         sample(&state, &in, angle,
                angle >= 10 && angle <= 50 ? 900 : 350,
                AX_XURSC_READY);
-    for (angle = 50; angle >= 10; angle -= 5)
+    for (angle = 42; angle >= 18; angle -= 3)
         sample(&state, &in, angle,
-               angle == 20 ? 700 : 900, AX_XURSC_READY);
+               angle == 24 ? 700 : 900, AX_XURSC_READY);
     assert(state.phase == AX_AVOID_TURN_OUT);
     assert(state.advance_target_mm == 300);
     return 0;

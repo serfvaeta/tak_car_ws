@@ -5,7 +5,8 @@
 static const AX_AVOID_Config config = {
     .front_stop_mm = 350, .front_release_mm = 400, .side_min_mm = 400,
     .scan_max_angle_deg = 90, .scan_step_deg = 15,
-    .fine_scan_radius_deg = 20, .fine_scan_step_deg = 5,
+    .coarse_scan_radius_deg = 20,
+    .fine_scan_radius_deg = 12, .fine_scan_step_deg = 3,
     .track_probe_angle_deg = 25, .track_probe_step_deg = 5,
     .range_max_age_ms = 250, .approach_start_cm = 110,
     .approach_stop_cm = 100, .follow_max_mm_s = 300,
@@ -78,9 +79,9 @@ int main(void)
                    350);
     assert(state.phase == AX_AVOID_SCAN_SIDE);
     assert(state.scan_stage == AX_AVOID_SCAN_FINE);
-    for (int16_t angle = 65; angle >= 25; angle -= 5)
+    for (int16_t angle = 57; angle >= 33; angle -= 3)
         out = echo(&state, &in, angle,
-                   angle >= 25 && angle <= 65 ? 3000 : 350, 350);
+                   3000, 350);
     assert(state.phase == AX_AVOID_TURN_OUT);
     assert(state.detour_angle_deg == 45);
     assert(out.forward_mm_s == 0);

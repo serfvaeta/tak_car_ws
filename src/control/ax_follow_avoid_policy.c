@@ -16,12 +16,13 @@ static uint8_t ConfigValid(const AX_AVOID_Config *config)
            config->side_min_mm > 0u && config->scan_max_angle_deg > 0 &&
            config->scan_max_angle_deg <= 90 &&
            config->scan_step_deg > 0 &&
+           config->coarse_scan_radius_deg > 0 &&
+           config->coarse_scan_radius_deg <= config->scan_max_angle_deg &&
            config->fine_scan_radius_deg > 0 &&
-           config->fine_scan_radius_deg <= config->scan_max_angle_deg &&
+           config->fine_scan_radius_deg <=
+               config->coarse_scan_radius_deg &&
            config->fine_scan_step_deg > 0 &&
            config->fine_scan_radius_deg % config->fine_scan_step_deg == 0 &&
-           config->scan_step_deg % config->fine_scan_step_deg == 0 &&
-           config->scan_max_angle_deg % config->fine_scan_step_deg == 0 &&
            (2 * config->fine_scan_radius_deg /
                 config->fine_scan_step_deg + 1) <= AX_AVOID_SCAN_MAX_POINTS &&
            config->track_probe_angle_deg > 0 &&
@@ -306,7 +307,7 @@ static void SelectCoarseDirection(AX_AVOID_State *state,
     uint16_t best_clearance = 0;
     int16_t best_angle = 0;
     uint8_t best_index = 0;
-    uint8_t radius_steps = (uint8_t)((config->fine_scan_radius_deg +
+    uint8_t radius_steps = (uint8_t)((config->coarse_scan_radius_deg +
                                       config->scan_step_deg - 1) /
                                      config->scan_step_deg);
     for (uint8_t i = radius_steps; i + radius_steps < count; ++i) {
@@ -318,9 +319,9 @@ static void SelectCoarseDirection(AX_AVOID_State *state,
             (i - radius_steps);
         if ((state->coarse_valid_mask & required_mask) != required_mask ||
             (state->coarse_attempted_mask & ((uint32_t)1u << i)) != 0u ||
-            angle - config->fine_scan_radius_deg <
+            angle - config->coarse_scan_radius_deg <
                 -config->scan_max_angle_deg ||
-            angle + config->fine_scan_radius_deg >
+            angle + config->coarse_scan_radius_deg >
                 config->scan_max_angle_deg)
             continue;
         for (uint8_t j = (uint8_t)(i - radius_steps);

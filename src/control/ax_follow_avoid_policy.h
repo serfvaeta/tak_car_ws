@@ -53,6 +53,7 @@ typedef struct {
     uint16_t side_min_mm;
     int16_t scan_max_angle_deg;
     int16_t scan_step_deg;
+    int16_t coarse_scan_radius_deg;
     int16_t fine_scan_radius_deg;
     int16_t fine_scan_step_deg;
     int16_t track_probe_angle_deg;

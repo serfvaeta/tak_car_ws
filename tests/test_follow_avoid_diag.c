@@ -7,7 +7,8 @@ int main(void)
     const AX_AVOID_Config config = {
         .front_stop_mm = 350, .front_release_mm = 400, .side_min_mm = 400,
         .scan_max_angle_deg = 90, .scan_step_deg = 15,
-        .fine_scan_radius_deg = 20, .fine_scan_step_deg = 5,
+        .coarse_scan_radius_deg = 20,
+        .fine_scan_radius_deg = 12, .fine_scan_step_deg = 3,
         .track_probe_angle_deg = 25, .track_probe_step_deg = 5,
         .range_max_age_ms = 250, .approach_start_cm = 110,
         .approach_stop_cm = 100, .follow_max_mm_s = 300,
