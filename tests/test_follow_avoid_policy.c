@@ -1,5 +1,6 @@
 #include <assert.h>
 
+#include "openctr_avoid_config.h"
 #include "ax_follow_avoid_policy.h"
 
 static const AX_AVOID_Config config = {
@@ -13,7 +14,7 @@ static const AX_AVOID_Config config = {
     .advance_max_mm_s = 100, .yaw_max_mrad_s = 500,
     .turn_timeout_ms = 5000, .turn_settle_max_yaw_mrad_s = 100,
     .turn_overshoot_mrad = 100, .advance_range_cap_mm = 2000,
-    .advance_segment_cap_mm = 400,
+    .advance_segment_cap_mm = OPENCTR_AVOID_ADVANCE_SEGMENT_CAP_MM,
     .advance_clearance_mm = 200,
     .stall_timeout_ms = 1000, .stall_min_mm = 20,
     .align_stop_turn_deg = 12,
@@ -96,10 +97,10 @@ int main(void)
     assert(state.phase == AX_AVOID_TURN_OUT && out.forward_mm_s == 0);
     out = echo(&state, &in, 0, 400, 100);
     assert(state.phase == AX_AVOID_ADVANCE && out.forward_mm_s == 100);
-    assert(state.advance_target_mm == 400);
+    assert(state.advance_target_mm == 600);
 
     in.forward_mm_s = 100;
-    for (unsigned i = 0; i < 40; ++i)
+    for (unsigned i = 0; i < 60; ++i)
         out = echo(&state, &in, 0, 400, 100);
     assert(state.phase == AX_AVOID_ALIGN_TARGET);
     assert(out.forward_mm_s == 0);

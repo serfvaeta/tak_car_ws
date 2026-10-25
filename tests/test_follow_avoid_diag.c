@@ -15,7 +15,7 @@ int main(void)
         .advance_max_mm_s = 100, .yaw_max_mrad_s = 500,
         .turn_timeout_ms = 5000, .turn_settle_max_yaw_mrad_s = 100,
         .turn_overshoot_mrad = 100, .advance_range_cap_mm = 2000,
-        .advance_segment_cap_mm = 400,
+        .advance_segment_cap_mm = 600,
         .advance_clearance_mm = 400,
         .stall_timeout_ms = 1000, .stall_min_mm = 20,
         .align_stop_turn_deg = 12,
