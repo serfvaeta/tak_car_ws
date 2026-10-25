@@ -24,6 +24,7 @@ static AX_AVOID_Config config = {
     .turn_settle_max_yaw_mrad_s = 100,
     .turn_overshoot_mrad = 100,
     .advance_range_cap_mm = 2000,
+    .advance_segment_cap_mm = 400,
     .advance_clearance_mm = 400,
     .max_distance_mm = 1200,
     .max_time_ms = 25000,
@@ -300,8 +301,9 @@ int main(void)
     in.range_triggered_ms = in.now_ms - 20;
     ++in.range_sequence;
     out = AX_AVOID_Step(&state, &config, &in);
-    assert(state.phase == AX_AVOID_SCAN_SIDE);
-    assert(out.pan_angle_deg == 90);
+    assert(state.phase == AX_AVOID_ALIGN_TARGET);
+    assert(state.hold_reason == AX_AVOID_DIAG_TURN_BLOCKED);
+    assert(out.pan_angle_deg == 0);
     assert(out.forward_mm_s == 0 && out.yaw_mrad_s == 0);
 
     /* Failed or short readings are recorded but cannot become a route. */

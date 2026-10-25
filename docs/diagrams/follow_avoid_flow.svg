@@ -18,7 +18,7 @@
 <text x="490" y="724" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" fill="#172033">取已确认扇形的中心角</text>
 <rect x="350" y="775" width="280" height="120" rx="18" fill="#fef3c7" stroke="#64748b" stroke-width="2"/>
 <text x="490" y="813" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="27" fill="#172033">ADVANCE</text>
-<text x="490" y="859" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="18" fill="#172033">min(扇形最近测距, 2000) - 200 mm</text>
+<text x="490" y="859" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="18" fill="#172033">每段最多前进 400 mm</text>
 <rect x="40" y="505" width="280" height="120" rx="18" fill="#fee2e2" stroke="#64748b" stroke-width="2"/>
 <text x="180" y="543" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="27" fill="#172033">RESCAN_WAIT</text>
 <text x="180" y="589" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" fill="#172033">停车 2 秒后重新粗扫</text>
@@ -38,8 +38,7 @@
 <polygon points="320.0,565.0 307.9,572.0 307.9,558.0" fill="#475569"/>
 <polyline points="350,565 320,565" fill="none" stroke="#475569" stroke-width="4"/>
 <polygon points="320.0,565.0 332.1,558.0 332.1,572.0" fill="#475569"/>
-<polyline points="350,700 300,700 300,565 320,565" fill="none" stroke="#475569" stroke-width="4"/>
-<polygon points="320.0,565.0 307.9,572.0 307.9,558.0" fill="#475569"/>
+<polyline points="630,700 680,700 680,75 490,75 490,100" fill="none" stroke="#475569" stroke-width="4"/>
 <polyline points="320,565 280,565 280,430 350,430" fill="none" stroke="#475569" stroke-width="4"/>
 <polygon points="350.0,430.0 337.9,437.0 337.9,423.0" fill="#475569"/>
 <text x="770" y="225" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="22" fill="#172033">对准后</text>
@@ -48,6 +47,7 @@
 <text x="790" y="630" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="22" fill="#172033">九点全部达标</text>
 <text x="790" y="765" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="22" fill="#172033">正前方测距放行</text>
 <text x="760" y="925" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="22" fill="#172033">绕行结束，重新对准</text>
-<text x="180" y="650" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="17" fill="#172033">无合格路 / 超时 / 转向受阻</text>
+<text x="180" y="650" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="17" fill="#172033">无合格路 / 扫描超时</text>
+<text x="795" y="685" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="17" fill="#172033">转后前方不足：先按 AOA 对准</text>
 <text x="500" y="970" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans CJK SC" font-size="19" fill="#172033">细扫不合格则尝试下一粗扫候选；粗扫超时 9 秒，细扫超时 5 秒。</text>
 </svg>

@@ -13,6 +13,7 @@ static const AX_AVOID_Config config = {
     .advance_max_mm_s = 100, .yaw_max_mrad_s = 500,
     .turn_timeout_ms = 5000, .turn_settle_max_yaw_mrad_s = 100,
     .turn_overshoot_mrad = 100, .advance_range_cap_mm = 2000,
+    .advance_segment_cap_mm = 400,
     .advance_clearance_mm = 200,
     .stall_timeout_ms = 1000, .stall_min_mm = 20,
     .align_stop_turn_deg = 12,
@@ -95,10 +96,10 @@ int main(void)
     assert(state.phase == AX_AVOID_TURN_OUT && out.forward_mm_s == 0);
     out = echo(&state, &in, 0, 400, 100);
     assert(state.phase == AX_AVOID_ADVANCE && out.forward_mm_s == 100);
-    assert(state.advance_target_mm == 1800);
+    assert(state.advance_target_mm == 400);
 
     in.forward_mm_s = 100;
-    for (unsigned i = 0; i < 180; ++i)
+    for (unsigned i = 0; i < 40; ++i)
         out = echo(&state, &in, 0, 400, 100);
     assert(state.phase == AX_AVOID_ALIGN_TARGET);
     assert(out.forward_mm_s == 0);
@@ -112,5 +113,35 @@ int main(void)
     in.follow_target.yaw_mrad_s = -250;
     out = echo(&state, &in, 0, 400, 20);
     assert(state.phase == AX_AVOID_ALIGN_TARGET && out.yaw_mrad_s == -250);
+
+    /* A blocked post-turn front must rejoin the AOA heading before rescanning. */
+    AX_AVOID_Reset(&state);
+    in = input();
+    state.phase = AX_AVOID_TURN_OUT;
+    state.approach_needed = 1;
+    state.detour_active = 1;
+    state.turn_target_mrad = 500;
+    state.turn_progress_mrad = 500;
+    state.detour_angle_deg = 30;
+    state.detour_side = 1;
+    state.pan_angle_deg = 0;
+    in.aoa_azimuth_deg = -25;
+    in.follow_target.yaw_mrad_s = -500;
+    in.yaw_rate_mrad_s = 0;
+    echo(&state, &in, 0, 350, 100);
+    assert(state.phase == AX_AVOID_TURN_OUT);
+    out = echo(&state, &in, 0, 350, 100);
+    assert(state.phase == AX_AVOID_ALIGN_TARGET);
+    assert(state.hold_reason == AX_AVOID_DIAG_TURN_BLOCKED);
+    assert(!state.detour_active && out.forward_mm_s == 0);
+    out = echo(&state, &in, 0, 350, 20);
+    assert(state.phase == AX_AVOID_ALIGN_TARGET && out.yaw_mrad_s == -500);
+    in.aoa_azimuth_deg = 0;
+    in.follow_target.yaw_mrad_s = 0;
+    echo(&state, &in, 0, 350, 20);
+    assert(state.phase == AX_AVOID_FORWARD);
+    out = echo(&state, &in, 0, 350, 100);
+    assert(state.phase == AX_AVOID_SCAN_SIDE);
+    assert(out.pan_angle_deg == 90 && out.forward_mm_s == 0);
     return 0;
 }

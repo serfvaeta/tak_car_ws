@@ -52,6 +52,7 @@ static const AX_AVOID_Config avoid_config = {
         OPENCTR_AVOID_TURN_SETTLE_MAX_YAW_MRAD_S,
     .turn_overshoot_mrad = OPENCTR_AVOID_TURN_OVERSHOOT_MRAD,
     .advance_range_cap_mm = OPENCTR_AVOID_ADVANCE_RANGE_CAP_MM,
+    .advance_segment_cap_mm = OPENCTR_AVOID_ADVANCE_SEGMENT_CAP_MM,
     .advance_clearance_mm = OPENCTR_AVOID_ADVANCE_CLEARANCE_MM,
     .max_distance_mm = OPENCTR_AVOID_MAX_DISTANCE_MM,
     .max_time_ms = OPENCTR_AVOID_MAX_TIME_MS,

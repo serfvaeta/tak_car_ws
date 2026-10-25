@@ -39,6 +39,7 @@ static uint8_t ConfigValid(const AX_AVOID_Config *config)
            config->turn_settle_max_yaw_mrad_s <=
                (uint16_t)config->yaw_max_mrad_s &&
            config->turn_overshoot_mrad > 0u &&
+           config->advance_segment_cap_mm > 0u &&
            config->advance_clearance_mm > 0u &&
            config->stall_timeout_ms > 0u &&
            config->rescan_wait_ms > 0u &&
@@ -223,6 +224,8 @@ static void EnterDetour(AX_AVOID_State *state,
     state->detour_side = state->detour_angle_deg < 0 ? -1 : 1;
     state->advance_target_mm = (uint32_t)(planning_distance_mm -
                                           config->advance_clearance_mm);
+    if (state->advance_target_mm > config->advance_segment_cap_mm)
+        state->advance_target_mm = config->advance_segment_cap_mm;
     state->turn_target_mrad =
         ((uint32_t)(state->detour_angle_deg < 0 ?
                     -state->detour_angle_deg : state->detour_angle_deg) *
@@ -424,7 +427,7 @@ static AX_AVOID_Output StepTurnOut(AX_AVOID_State *state,
             output.forward_mm_s = config->advance_max_mm_s;
             return output;
         }
-        EnterScan(state, config, input);
+        EnterRecovery(state, input, AX_AVOID_DIAG_TURN_BLOCKED);
         return StopOutput(state);
     }
     state->turn_settle_pending = 0;

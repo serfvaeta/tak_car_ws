@@ -68,6 +68,7 @@ typedef struct {
     uint16_t turn_settle_max_yaw_mrad_s;
     uint16_t turn_overshoot_mrad;
     uint16_t advance_range_cap_mm;
+    uint16_t advance_segment_cap_mm;
     uint16_t advance_clearance_mm;
     /* Zero disables the cumulative limit; per-action limits still apply. */
     uint16_t max_distance_mm;
