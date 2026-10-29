@@ -28,18 +28,24 @@ void AX_UART2_Init(uint32_t baud)
 
 
 	/* 串口USART配置 */
+#if OPENCTR_ENABLE_AOA_RECEIVER
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD,ENABLE);
+#else
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA,ENABLE);
+#endif
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2,ENABLE);
 	
 	//USART对应引脚复用映射
-#if !OPENCTR_ENABLE_AOA_RECEIVER
+#if OPENCTR_ENABLE_AOA_RECEIVER
+	GPIO_PinAFConfig(GPIOD,GPIO_PinSource6,GPIO_AF_USART2);
+#else
 	GPIO_PinAFConfig(GPIOA,GPIO_PinSource2,GPIO_AF_USART2);
+	GPIO_PinAFConfig(GPIOA,GPIO_PinSource3,GPIO_AF_USART2);
 #endif
-	GPIO_PinAFConfig(GPIOA,GPIO_PinSource3,GPIO_AF_USART2); 
 
 	//USART 端口配置
 #if OPENCTR_ENABLE_AOA_RECEIVER
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6;
 #else
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2 | GPIO_Pin_3;
 #endif
@@ -47,15 +53,19 @@ void AX_UART2_Init(uint32_t baud)
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;	
 	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
 	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP; 
-	GPIO_Init(GPIOA,&GPIO_InitStructure); 
+#if OPENCTR_ENABLE_AOA_RECEIVER
+	GPIO_Init(GPIOD,&GPIO_InitStructure);
+#else
+	GPIO_Init(GPIOA,&GPIO_InitStructure);
+#endif
 
 #if OPENCTR_ENABLE_AOA_RECEIVER
-	// PA2 已接基站 RX；保持空闲高电平，不发送旧底盘遥测。
-	GPIO_SetBits(GPIOA, GPIO_Pin_2);
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
+	// PD5 已接基站 RX；保持空闲高电平，不发送旧底盘遥测。
+	GPIO_SetBits(GPIOD, GPIO_Pin_5);
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
 	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_Init(GPIOA, &GPIO_InitStructure);
+	GPIO_Init(GPIOD, &GPIO_InitStructure);
 #endif
 
 	//USART参数配置

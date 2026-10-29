@@ -68,7 +68,7 @@ def main(argv=None) -> int:
             print("没有收到 AOA 状态帧；请确认已烧录接收诊断固件", file=sys.stderr)
             return 1
         if not has_live_aoa_data(raw_seen, first_received, last_received):
-            print("监听期间未收到新的基站字节；请检查供电、TX→PA3 和信标连接", file=sys.stderr)
+            print("监听期间未收到新的基站字节；请检查供电、TX→PD6 和信标连接", file=sys.stderr)
             return 2
         return 0
     except KeyboardInterrupt:

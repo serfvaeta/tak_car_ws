@@ -4,7 +4,7 @@
 
 ## 如何打开
 
-1. 在 VS Code 选择“文件 → 打开文件夹”，选择**本文件夹** `OpenCTR_H60V32_4W_FW_V1.00.231009_copy`。
+1. 在 VS Code 选择“文件 → 打开文件夹”，选择**本文件夹** `STM32四轮移动机器人跟随与避障控制系统`。
 2. 安装或启用 PlatformIO IDE 扩展。根目录的 `platformio.ini` 会使它识别为 PlatformIO 工程。
 3. 点击底部状态栏 **✓ Build** 编译。ST-LINK 连接好且决定烧录时，再点击 **→ Upload**。
 
@@ -42,8 +42,8 @@
 | --- | --- | --- | --- |
 | PA0 | `TIM5_CH1`，复用输入 | 编码器 C | 采集 C 电机编码器 A 相 |
 | PA1 | `TIM5_CH2`，复用输入 | 编码器 C | 采集 C 电机编码器 B 相 |
-| PA2 | GPIO 高电平输出 | 扩展接口 2 `EXP2`/单基站 RX | 当前不发送数据，保持已连接基站接收线的空闲电平 |
-| PA3 | `USART2_RX`，复用输入 | 扩展接口 2 `EXP2`/单基站 TX | 以 115200 波特率接收单基站串口数据 |
+| PA2 | 当前未初始化 | 扩展接口 2 `EXP2` | 单基站已迁至 PD5/PD6；当前固件不使用此脚 |
+| PA3 | 当前未初始化 | 扩展接口 2 `EXP2` | 单基站已迁至 PD5/PD6；当前固件不使用此脚 |
 | PA4 | GPIO 推挽输出 | OLED（经扩展接口 1 `EXP1`） | D/C：数据/命令选择；主程序启动时会初始化 |
 | PA5 | `SPI1_SCK`，复用输出 | OLED（经扩展接口 1 `EXP1`） | SCK：SPI 时钟；主程序启动时会初始化 |
 | PA6 | GPIO 推挽输出 | OLED（经扩展接口 1 `EXP1`） | RES/RST：屏幕复位；主程序启动时会初始化 |
@@ -69,7 +69,7 @@
 | 电源 3.3V | `EXP1` 的 3.3V | 给 OLED 和蓝牙模块供电，不是 STM32 GPIO |
 | 电源 GND | `EXP1` 的 GND | OLED 和蓝牙模块共地，不是 STM32 GPIO |
 
-`src/app/main.c` 启动时会调用 `AX_OLED_Init()`，所以 PA4～PA7 在当前固件中均已配置。SPI1 采用内部软件 NSS，但程序没有控制外部 OLED CS 的 GPIO；若单独接裸屏，还要确认该屏的 CS 接法。**资料存在引脚标注矛盾**：用户手册第 13 页的扩展板图将 3.3V 一行对到 PA7、OLED D/C 一行对到 PA3，与控制器原理图的 `EXP1` 供电/引脚以及当前 OLED 代码不一致。上表记录的是当前代码预期的连接，实际接线前需要核对所用扩展板的引脚或原理图。USART2_RX 则是 PA3，不属于当前代码的 OLED 信号。
+`src/app/main.c` 启动时会调用 `AX_OLED_Init()`，所以 PA4～PA7 在当前固件中均已配置。SPI1 采用内部软件 NSS，但程序没有控制外部 OLED CS 的 GPIO；若单独接裸屏，还要确认该屏的 CS 接法。**资料存在引脚标注矛盾**：用户手册第 13 页的扩展板图将 3.3V 一行对到 PA7、OLED D/C 一行对到 PA3，与控制器原理图的 `EXP1` 供电/引脚以及当前 OLED 代码不一致。上表记录的是当前代码预期的连接，实际接线前需要核对所用扩展板的引脚或原理图。PA3 当前未用于 OLED 或单基站串口接收。
 
 ### GPIOB
 
@@ -118,8 +118,8 @@
 | PD2 | `UART5_RX` 可选复用输入 | 扩展接口 1/SBUS | SBUS 接收脚；`OPENCTR_ENABLE_SBUS_CONTROL=0`，当前启动时不初始化 |
 | PD3 | GPIO 推挽输出，低电平点亮 | 板载红色 LED | 红色状态指示灯 |
 | PD4 | GPIO 推挽输出，低电平点亮 | 板载绿色 LED | 绿色状态指示灯 |
-| PD5 | `USART2_TX` 可选复用 | 扩展接口 1 `EXP1` | 原理图标为 `UART2_TX`，当前固件未配置；单基站仅使用 PA3 接收 |
-| PD6 | `USART2_RX` 可选复用 | 扩展接口 1 `EXP1` | 原理图标为 `UART2_RX`，当前固件未配置；单基站仅使用 PA3 接收 |
+| PD5 | GPIO 高电平输出 | 扩展接口 1 `EXP1`/单基站 RX | J4-11；保持已连接基站接收线的空闲电平，不发送数据 |
+| PD6 | `USART2_RX`，复用输入 | 扩展接口 1 `EXP1`/单基站 TX | J4-12；以 115200 波特率接收单基站串口数据 |
 | PD7 | GPIO/外部中断输入 | MPU6050 | 板上已连接 MPU6050 的 `INT`；当前固件采用轮询读取，未初始化该中断脚 |
 | PD8 | `USART3_TX`，复用输出 | USB-COM 通信口 | 以 230400 波特率发送底盘遥测数据 |
 | PD9 | `USART3_RX`，复用输入 | USB-COM 通信口 | 接收电脑或上位机发送的速度控制帧 |
@@ -226,11 +226,11 @@ SCAN 模式将底盘目标速度和电机 PWM 都置零，并清除麦轮速度 
 
 ## 单基站串口接收诊断
 
-`OPENCTR_ENABLE_AOA_RECEIVER=1` 时，EXP2/J5 上的 USART2 专用于单基站：J5-5/PA3 接基站 TX，J5-6/PA2 接基站 RX，J5-3 或 4 接转接板 VCC，J5-1 或 2 接 GND。USART2 以 115200、8N1 接收；PA2 保持高电平，不发送原底盘遥测。原有底盘遥测仍从 USB-COM 发送。
+`OPENCTR_ENABLE_AOA_RECEIVER=1` 时，EXP1/J4 上的 USART2 专用于单基站：J4-12/PD6 接基站 TX，J4-11/PD5 接基站 RX，转接板按其规格供电并与控制器共地。USART2 以 115200、8N1 接收；PD5 保持高电平，不发送原底盘遥测。PA2/PA3 在此配置下不初始化，原有底盘遥测仍从 USB-COM 发送。
 
 单片机的 AOA 模块分为接收和协议两层：`src/communication/ax_uart2.c` 接收串口字节，`src/communication/ax_aoa_protocol.c` 校验并解包 `0x2001` 定位报文，`src/communication/ax_aoa.c` 保存最新距离、方位角、仰角、基站/标签 ID 和接收时间。任务代码可调用 `AX_AOA_GetLatest(&sample, max_age_ms)`；超过指定时间没有新定位帧就返回无效。协议书中的版本号与实测报文不同，所以解包不按版本号过滤，只校验长度、命令和异或值。`0x2002` 离线心跳不更新定位，已有数据会按时间过期。
 
-为方便诊断，模块仍通过 USB-COM 转发原始字节（帧号 `0x13`），并每约 1 秒报告累计接收字节数及缓冲溢出数（帧号 `0x14`）。烧录后可用 `python3 tools/aoa_serial.py --port /dev/ttyACM0 --seconds 8` 查看。若接收字节数一直为 0，检查转接板供电、基站 TX 到 PA3 的连线、信标是否在线。
+为方便诊断，模块仍通过 USB-COM 转发原始字节（帧号 `0x13`），并每约 1 秒报告累计接收字节数及缓冲溢出数（帧号 `0x14`）。烧录后可用 `python3 tools/aoa_serial.py --port /dev/ttyACM0 --seconds 8` 查看。若接收字节数一直为 0，检查转接板供电、基站 TX 到 PD6 的连线、信标是否在线。
 
 协议解包的独立 C 测试在 `tests/test_aoa_protocol.c`。编译和运行该测试可用：`cc -std=c99 -Wall -Wextra -Isrc/communication tests/test_aoa_protocol.c src/communication/ax_aoa_protocol.c -o /tmp/test_aoa_protocol && /tmp/test_aoa_protocol`。
 

@@ -104,7 +104,7 @@ int main(void)
 	//调试串口初始化
 	AX_UART1_Init(230400);
 	
-	//EXP2 USART2：单基站接收使用 115200；其他配置保持原有速率。
+	//EXP1 USART2：单基站接收使用 115200；其他配置保持原有速率。
 #if OPENCTR_ENABLE_AOA_RECEIVER
 	AX_UART2_Init(115200);
 #else
